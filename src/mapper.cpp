@@ -1,5 +1,6 @@
 #include <ros/ros.h>
-#include <nav_msgs/GridCells.h>
+#include <visualization_msgs/MarkerArray.h>
+#include <visualization_msgs/Marker.h>
 #include <geometry_msgs/Point.h>
 
 #include <s8_common_node/Node.h>
@@ -18,11 +19,11 @@
 #define PARAM_RENDER_NAME           "render"
 #define PARAM_RENDER_DEFAULT        false
 
-#define CELL_UNKNOWN                -1
-#define CELL_FREE                   0
-#define CELL_OBSTACLE               0 << 1
-#define CELL_WALL                   0 << 2 & CELL_OBSTACLE
-#define CELL_OBJECT                 0 << 3 & CELL_OBSTACLE
+#define CELL_UNKNOWN                1
+#define CELL_FREE                   1 << 2
+#define CELL_OBSTACLE               1 << 3
+#define CELL_WALL                   1 << 4 & CELL_OBSTACLE
+#define CELL_OBJECT                 1 << 5 & CELL_OBSTACLE
 
 class Mapper : public s8::Node {
     double side_length;
@@ -33,7 +34,7 @@ class Mapper : public s8::Node {
     long map_state;
     long map_state_rendered;
 
-    ros::Publisher rviz_gridcells_publisher;
+    ros::Publisher rviz_markers_publisher;
 
 public:
     Mapper() : map_state(0), map_state_rendered(-1) {
@@ -53,7 +54,7 @@ public:
         ROS_INFO("map size: %ldx%ld", map.num_rows(), map.num_cols());
 
         if(render) {
-            rviz_gridcells_publisher = nh.advertise<nav_msgs::GridCells>("map", 1, true);
+            rviz_markers_publisher = nh.advertise<visualization_msgs::MarkerArray>("/visualization_marker_array", 0, true);
         }
     }
 
@@ -64,50 +65,70 @@ public:
     }
 
     void renderToRviz() {
-        static nav_msgs::GridCells grid_cells;
+        visualization_msgs::MarkerArray markerArray;
+        markerArray.markers = std::vector<visualization_msgs::Marker>((map.num_cells()));
+        auto & markers = markerArray.markers;
 
         if(map_state != map_state_rendered) {
-            grid_cells.header.frame_id = "/map";
-            grid_cells.header.stamp = ros::Time::now();
-            grid_cells.cell_width = map.num_cols();
-            grid_cells.cell_height = map.num_rows();
-
-            std::vector<geometry_msgs::Point> points(map.num_cells());
 
             for(size_t i = 0; i < map.num_rows(); i++) {
                 for(size_t j = 0; j < map.num_cols(); j++) {
-                    geometry_msgs::Point & point = points[i * map.num_rows() + j];
+                    visualization_msgs::Marker & marker = markers[i * map.num_rows() + j];
+
+                    marker.header.frame_id = "map";
+                    marker.header.stamp = ros::Time();
+                    marker.ns = "s8";
+                    marker.id = i * map.num_rows() + j;
+                    marker.type = visualization_msgs::Marker::CUBE;
+                    marker.action = visualization_msgs::Marker::ADD;
+                    marker.pose.position.x = i * resolution - side_length / 2;
+                    marker.pose.position.y = j * resolution - side_length / 2;
+                    marker.pose.position.z = 0;
+                    marker.pose.orientation.x = 0;
+                    marker.pose.orientation.y = 0;
+                    marker.pose.orientation.z = 0;
+                    marker.pose.orientation.w = 0;
+                    marker.scale.x = resolution;
+                    marker.scale.y = resolution;
+                    marker.scale.z = resolution;
 
                     if(is_point_obstacle(i, j)) {
-                        point.x = 0.0f;
+                        marker.color.a = 1.0;
+                        marker.color.r = 1.0;
+                        marker.color.g = 0.0;
+                        marker.color.b = 0.0;
                     } else if(is_point_wall(i, j)) {
 
                     } else if(is_point_free(i, j)) {
-                        point.y = 0.0f;
+                        marker.color.a = 0.0;
+                        marker.color.r = 1.0;
+                        marker.color.g = 1.0;
+                        marker.color.b = 1.0;
                     } else if(is_point_object(i, j)) {
 
                     } else if(is_point_unknown(i, j)) {
-                        point.z = 0.0f;
+                        marker.color.a = 0.5;
+                        marker.color.r = 1.0;
+                        marker.color.g = 1.0;
+                        marker.color.b = 1.0;
                     } else {
                         ROS_WARN("Unknown cell type: %d at (%ld,%ld)", map[i][j], i, j);
                     }
                 }
             }
 
-            grid_cells.cells = points;
-
             ROS_INFO("Sending recomputed map to be rendered");
         } else {
             ROS_INFO("Sending cached map to be rendered");
         }
 
-        rviz_gridcells_publisher.publish(grid_cells);
+        rviz_markers_publisher.publish(markerArray);
 
         map_state_rendered = map_state;
     }
 
     bool is_point_value(size_t row_index, size_t col_index, int value) {
-        return map[row_index][col_index] & value == value;
+        return (map[row_index][col_index] | value) == value;
     }
 
     bool is_point_obstacle(size_t row_index, size_t col_index) {
@@ -176,6 +197,17 @@ int main(int argc, char **argv) {
 
     Mapper mapper;
     ros::Rate loop_rate(HZ);
+
+    for(int i = 3; i < 8; i++) {
+        for(int j = 2; j < 6; j++) {
+            mapper.set_free(i, j);
+        }
+    }
+
+    mapper.set_wall(8, 5);
+    mapper.set_wall(8, 4);
+    mapper.set_wall(8, 3);
+    mapper.set_wall(8, 2);
 
     while(ros::ok()) {
         mapper.update();

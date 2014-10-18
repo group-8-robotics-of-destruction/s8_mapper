@@ -1,0 +1,20 @@
+<package>
+ <name>s8_mapper</name>
+  <version>0.0.0</version>
+  <description>
+    Node to handle the mapping of the world.
+  </description>
+  <license>BSD</license>
+
+  <author email="lwiener@kth.se">Lucas</author>
+  <maintainer email="lwiener@kth.se">Lucas</maintainer>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <build_depend>roscpp</build_depend>
+  <build_depend>s8_common_node</build_depend>
+
+  <run_depend>roscpp</run_depend>
+  <run_depend>s8_common_node</run_depend>
+
+</package>

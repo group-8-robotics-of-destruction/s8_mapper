@@ -67,7 +67,7 @@ public:
         static nav_msgs::GridCells grid_cells;
 
         if(map_state != map_state_rendered) {
-            grid_cells.header.frame_id = "map_frame";
+            grid_cells.header.frame_id = "/map";
             grid_cells.header.stamp = ros::Time::now();
             grid_cells.cell_width = map.num_cols();
             grid_cells.cell_height = map.num_rows();
@@ -79,15 +79,15 @@ public:
                     geometry_msgs::Point & point = points[i * map.num_rows() + j];
 
                     if(is_point_obstacle(i, j)) {
-                        point.x = 255.0f;
+                        point.x = 0.0f;
                     } else if(is_point_wall(i, j)) {
 
                     } else if(is_point_free(i, j)) {
-                        point.y = 255.0f;
+                        point.y = 0.0f;
                     } else if(is_point_object(i, j)) {
 
                     } else if(is_point_unknown(i, j)) {
-                        point.z = 255.0f;
+                        point.z = 0.0f;
                     } else {
                         ROS_WARN("Unknown cell type: %d at (%ld,%ld)", map[i][j], i, j);
                     }

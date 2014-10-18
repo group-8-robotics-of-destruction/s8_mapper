@@ -52,7 +52,7 @@ namespace s8 {
             return cols;
         }
 
-        const Row & operator[] (size_t index) throw (std::out_of_range) {
+        Row & operator[] (size_t index) throw (std::out_of_range) {
             return matrix.at(index);
         }
     };

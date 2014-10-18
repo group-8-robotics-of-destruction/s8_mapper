@@ -18,7 +18,6 @@
 #define CELL_OBSTACLE               0 << 1
 #define CELL_WALL                   0 << 2 & CELL_OBSTACLE
 #define CELL_OBJECT                 0 << 3 & CELL_OBSTACLE
-#define CELL_ROBOT                  0 << 4
 
 class Mapper : public s8::Node {
     double side_length;
@@ -43,6 +42,27 @@ public:
         ROS_INFO("map size: %ldx%ld", map.num_rows(), map.num_cols());
     }
 
+    void set_point(size_t row_index, size_t col_index, int value) {
+        map[row_index][col_index] = value;
+    }
+
+    void set_obstacle(size_t row_index, size_t col_index) {
+        set_point(row_index, col_index, CELL_OBSTACLE);
+    }
+
+    void set_wall(size_t row_index, size_t col_index) {
+        set_point(row_index, col_index, CELL_WALL);
+    }
+
+    void set_free(size_t row_index, size_t col_index) {
+        set_point(row_index, col_index, CELL_FREE);
+    }
+
+    void set_object(size_t row_index, size_t col_index) {
+        set_point(row_index, col_index, CELL_OBJECT);
+    }
+
+private:
     void init_params() {
         add_param(PARAM_SIDE_LENGTH_NAME, side_length, PARAM_SIDE_LENGTH_DEFAULT);
         add_param(PARAM_RESOLUTION_NAME, resolution, PARAM_RESOLUTION_DEFAULT);

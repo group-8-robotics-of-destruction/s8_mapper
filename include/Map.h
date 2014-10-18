@@ -52,6 +52,10 @@ namespace s8 {
             return cols;
         }
 
+        size_t num_cells() const {
+            return rows * cols;
+        }
+
         Row & operator[] (size_t index) throw (std::out_of_range) {
             return matrix.at(index);
         }

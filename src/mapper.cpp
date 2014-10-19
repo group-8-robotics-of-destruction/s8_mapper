@@ -12,6 +12,9 @@
 #define BUFFER_SIZE                 1000
 #define RENDER_BUFFER_SIZE          10
 
+#define TOPIC_VISUALIZATION_MARKERS "/visualization_marker_array"
+#define TOPIC_ROBOT_POSITION        "robot_position"
+
 #define PARAM_SIDE_LENGTH_NAME      "side_length"
 #define PARAM_SIDE_LENGTH_DEFAULT   10.0
 #define PARAM_RESOLUTION_NAME       "resolution"
@@ -29,15 +32,21 @@ class Mapper : public s8::Node {
     double side_length;
     double resolution;
     s8::Map map;
+    ros::Subscriber robot_position_subscriber;
+    float prev_robot_x;
+    float prev_robot_y;
+    size_t prev_robot_i;
+    size_t prev_robot_j;
+    size_t robot_i;
+    size_t robot_j;
 
     bool render;
     long map_state;
     long map_state_rendered;
-
     ros::Publisher rviz_markers_publisher;
 
 public:
-    Mapper() : map_state(0), map_state_rendered(-1) {
+    Mapper() : map_state(0), map_state_rendered(-1), prev_robot_x(0.0f), prev_robot_y(0.0f) {
         init_params();
         print_params();
 
@@ -50,12 +59,16 @@ public:
         }
 
         map = s8::Map(side_cells, side_cells, CELL_UNKNOWN);
-
         ROS_INFO("map size: %ldx%ld", map.num_rows(), map.num_cols());
 
+        prev_robot_i = robot_i = map.row_relative_origo(0);
+        prev_robot_j = robot_j = map.col_relative_origo(0);
+
         if(render) {
-            rviz_markers_publisher = nh.advertise<visualization_msgs::MarkerArray>("/visualization_marker_array", 0, true);
+            rviz_markers_publisher = nh.advertise<visualization_msgs::MarkerArray>(TOPIC_VISUALIZATION_MARKERS, 0, true);
         }
+
+        robot_position_subscriber = nh.subscribe<geometry_msgs::Point>(TOPIC_ROBOT_POSITION, BUFFER_SIZE, &Mapper::robot_position_callback, this);
     }
 
     void update() {
@@ -91,6 +104,14 @@ public:
                     marker.scale.x = resolution;
                     marker.scale.y = resolution;
                     marker.scale.z = resolution;
+
+                    if(robot_i == i && robot_j == j) {
+                        marker.color.a = 1.0;
+                        marker.color.r = 0.0;
+                        marker.color.g = 0.0;
+                        marker.color.b = 0.0;
+                        continue;
+                    }
 
                     if(is_point_obstacle(i, j)) {
                         marker.color.a = 1.0;
@@ -173,6 +194,24 @@ public:
     }
 
 private:
+    void robot_position_callback(const geometry_msgs::Point::ConstPtr & point) {
+        float x = point->x;
+        float y = point->y;
+
+        int movement_i = (x - prev_robot_x) / resolution;
+        int movement_j = (y - prev_robot_y) / resolution;
+
+        robot_i = prev_robot_i + movement_i;
+        robot_j = prev_robot_j + movement_j;
+
+        ROS_INFO("Robot movement: (%ld,%ld) -> (%ld,%ld)", prev_robot_i, prev_robot_j, robot_i, robot_j);
+
+        set_free(robot_i, robot_j);
+
+        prev_robot_i = robot_i;
+        prev_robot_j = robot_j;
+    };
+
     bool should_render() {
         if(!render) {
             return false;

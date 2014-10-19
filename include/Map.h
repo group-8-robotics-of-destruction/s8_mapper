@@ -27,19 +27,26 @@ namespace s8 {
     size_t rows;
     size_t cols;
 
+    size_t origo_row;
+    size_t origo_col;
+
     std::vector<Row> matrix;
 
     public:
-        Map() : rows(0), cols(0) {}
+        Map() : rows(0), cols(0), origo_row(0), origo_col(0) {}
 
         Map(size_t rows, size_t cols, int default_value = 0) : rows(rows), cols(cols) {
             matrix = std::vector<Row>(rows, Row(cols, default_value));
-            ROS_INFO("%ldx%ld", rows, cols);
+            origo_row = rows / 2;
+            origo_col = cols / 2;
+            ROS_INFO("%ldx%ld with origo (%ld,%ld)", rows, cols, origo_row, origo_col);
         }
 
         Map & operator= (Map && map) {
             rows = map.rows;
             cols = map.cols;
+            origo_row = map.origo_row;
+            origo_col = map.origo_col;
             matrix = std::move(map.matrix);
             return *this;
         }
@@ -54,6 +61,22 @@ namespace s8 {
 
         size_t num_cells() const {
             return rows * cols;
+        }
+
+        size_t get_origo_row() const {
+            return origo_row;
+        }
+        
+        size_t get_origo_col() const {
+            return origo_col;
+        }
+
+        size_t row_relative_origo(size_t index) const {
+            return origo_row + index;
+        }
+
+        size_t col_relative_origo(size_t index) const {
+            return origo_col + index;
         }
 
         Row & operator[] (size_t index) throw (std::out_of_range) {

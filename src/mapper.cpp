@@ -69,6 +69,23 @@ public:
         }
 
         robot_position_subscriber = nh.subscribe<geometry_msgs::Point>(TOPIC_ROBOT_POSITION, BUFFER_SIZE, &Mapper::robot_position_callback, this);
+
+
+        //TODO: Remove me.
+        for(int i = map.row_relative_origo(-4); i < map.row_relative_origo(4); i++) {
+            for(int j = map.col_relative_origo(-3); j < map.col_relative_origo(8); j++) {
+                set_free(i, j);
+            }
+        }
+
+        set_wall(map.row_relative_origo(-4), map.col_relative_origo(-3));
+        set_wall(map.row_relative_origo(-3), map.col_relative_origo(-3));
+        set_wall(map.row_relative_origo(-2), map.col_relative_origo(-3));
+        set_wall(map.row_relative_origo(-1), map.col_relative_origo(-3));
+        set_wall(map.row_relative_origo(0), map.col_relative_origo(-3));
+        set_wall(map.row_relative_origo(1), map.col_relative_origo(-3));
+        set_wall(map.row_relative_origo(2), map.col_relative_origo(-3));
+        set_wall(map.row_relative_origo(3), map.col_relative_origo(-3));
     }
 
     void update() {
@@ -236,17 +253,6 @@ int main(int argc, char **argv) {
 
     Mapper mapper;
     ros::Rate loop_rate(HZ);
-
-    for(int i = 3; i < 8; i++) {
-        for(int j = 2; j < 6; j++) {
-            mapper.set_free(i, j);
-        }
-    }
-
-    mapper.set_wall(8, 5);
-    mapper.set_wall(8, 4);
-    mapper.set_wall(8, 3);
-    mapper.set_wall(8, 2);
 
     while(ros::ok()) {
         mapper.update();

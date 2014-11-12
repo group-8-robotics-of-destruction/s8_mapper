@@ -8,6 +8,7 @@ find_package(catkin REQUIRED COMPONENTS roscpp s8_common_node)
 catkin_package(
   DEPENDS
   CATKIN_DEPENDS roscpp s8_common_node
+  INCLUDE_DIRS include
 )
 
 include_directories(
@@ -15,5 +16,5 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
 )
 
-add_executable(s8_mapper_node src/mapper.cpp)
+add_executable(s8_mapper_node src/mapper_node.cpp)
 target_link_libraries(s8_mapper_node ${catkin_LIBRARIES})

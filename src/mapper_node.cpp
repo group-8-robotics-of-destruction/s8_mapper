@@ -1,11 +1,13 @@
 #include <ros/ros.h>
 #include <s8_common_node/Node.h>
 #include <s8_mapper/mapper_node.h>
+#include <s8_ir_sensors/ir_sensors_node.h>
 #include <Map.h>
 
 #include <visualization_msgs/MarkerArray.h>
 #include <visualization_msgs/Marker.h>
 #include <geometry_msgs/Point.h>
+#include <s8_msgs/IRDistances.h>
 
 #define HZ                          10
 
@@ -16,13 +18,17 @@
 #define PARAM_RENDER_NAME           "render"
 #define PARAM_RENDER_DEFAULT        false
 
+#define TOPIC_IR_DISTANCES          s8::ir_sensors_node::TOPIC_IR_DISTANCES
+
 using namespace s8::mapper_node;
+using s8::ir_sensors_node::is_valid_ir_value;
 
 class Mapper : public s8::Node {
     double side_length;
     double resolution;
     s8::Map map;
     ros::Subscriber robot_position_subscriber;
+    ros::Subscriber ir_sensors_subscriber;
     float prev_robot_x;
     float prev_robot_y;
     size_t prev_robot_i;
@@ -59,6 +65,7 @@ public:
         }
 
         robot_position_subscriber = nh.subscribe<geometry_msgs::Point>(TOPIC_ROBOT_POSITION, 1, &Mapper::robot_position_callback, this);
+        ir_sensors_subscriber = nh.subscribe<s8_msgs::IRDistances>(TOPIC_IR_DISTANCES, 1, &Mapper::ir_distances_callback, this);
 
 
         //TODO: Remove me.
@@ -217,7 +224,18 @@ private:
 
         prev_robot_i = robot_i;
         prev_robot_j = robot_j;
-    };
+    }
+
+    void ir_distances_callback(const s8_msgs::IRDistances::ConstPtr & ir_distances) {
+        /*double left_back = ir_distances->left_back;
+        double left_front = ir_distances->left_front;
+
+        auto process_ir_value = [](double value, double offset) {
+            if(is_valid_ir_value(value)) {
+
+            }
+        };*/
+    }
 
     bool should_render() {
         if(!render) {

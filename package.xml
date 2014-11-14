@@ -16,11 +16,13 @@
   <build_depend>s8_ir_sensors</build_depend>
   <build_depend>s8_msgs</build_depend>
   <build_depend>s8_utils</build_depend>
+  <build_depend>s8_pose</build_depend>
 
   <run_depend>roscpp</run_depend>
   <run_depend>s8_common_node</run_depend>
   <run_depend>s8_ir_sensors</run_depend>
   <run_depend>s8_msgs</run_depend>
   <run_depend>s8_utils</run_depend>
+  <run_depend>s8_pose</run_depend>
 
 </package>

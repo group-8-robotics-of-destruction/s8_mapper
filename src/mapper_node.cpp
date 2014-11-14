@@ -12,7 +12,7 @@
 #include <geometry_msgs/PoseStamped.h>
 #include <s8_msgs/IRDistances.h>
 
-#define HZ                          50
+#define HZ                          10
 
 #define PARAM_SIDE_LENGTH_NAME      "side_length"
 #define PARAM_SIDE_LENGTH_DEFAULT   10.0

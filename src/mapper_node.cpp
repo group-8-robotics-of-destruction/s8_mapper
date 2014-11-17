@@ -9,7 +9,7 @@
 #include <visualization_msgs/MarkerArray.h>
 #include <visualization_msgs/Marker.h>
 #include <geometry_msgs/Point.h>
-#include <geometry_msgs/PoseStamped.h>
+#include <geometry_msgs/Pose2D.h>
 #include <s8_msgs/IRDistances.h>
 
 #define HZ                          10
@@ -22,29 +22,46 @@
 #define PARAM_RENDER_DEFAULT        false
 
 #define TOPIC_IR_DISTANCES          s8::ir_sensors_node::TOPIC_IR_DISTANCES
-#define TOPIC_POSE                  s8::pose_node::TOPIC_POSE
+#define TOPIC_POSE                  s8::pose_node::TOPIC_POSE_SIMPLE
 
 using namespace s8::mapper_node;
+using namespace s8::map;
+using namespace s8::utils::math;
 using s8::ir_sensors_node::is_valid_ir_value;
-using s8::utils::math::is_zero;
 using s8::pose_node::FrontFacing;
+
+
+struct Coordinate {
+    double x;
+    double y;
+
+    Coordinate() : x(0.0), y(0.0) {}
+    Coordinate(double x, double y) : x(x), y(y) {}
+};
+
+std::string to_string(Coordinate coordinate) {
+    return "(" + std::to_string(coordinate.x) + ", " + std::to_string(coordinate.y) + ")";
+}
 
 class Mapper : public s8::Node {
     double side_length;
     double resolution;
-    s8::Map map;
+    Map map;
     ros::Subscriber robot_position_subscriber;
     ros::Subscriber ir_sensors_subscriber;
     ros::Subscriber pose_subscriber;
     double robot_rotation;
     double robot_x;
-    double robot_z;
+    double robot_y;
     double prev_robot_x;
-    double prev_robot_z;
+    double prev_robot_y;
     size_t prev_robot_i;
     size_t prev_robot_j;
     size_t robot_i;
     size_t robot_j;
+
+    Coordinate left_back_position;
+    Coordinate left_front_position;
 
     bool render;
     long map_state;
@@ -52,9 +69,12 @@ class Mapper : public s8::Node {
     ros::Publisher rviz_markers_publisher;
 
 public:
-    Mapper() : robot_rotation(0.0), map_state(0), map_state_rendered(-1), robot_x(0.0), robot_z(0.0), prev_robot_x(0.0), prev_robot_z(0.0) {
+    Mapper() : robot_rotation(0.0), map_state(0), map_state_rendered(-1), robot_x(0.0), robot_y(0.0), prev_robot_x(0.0), prev_robot_y(0.0) {
         init_params();
         print_params();
+
+        left_back_position = Coordinate(-0.045, -0.075);
+        left_front_position = Coordinate(-0.045, 0.075);
 
         double side_cells_d = side_length / resolution;
         size_t side_cells = (size_t)side_cells_d;
@@ -64,7 +84,7 @@ public:
             ROS_WARN("Losing cells with current side_length and resolution. Cells lost on each side: %d", (int)(loss / resolution));
         }
 
-        map = s8::Map(side_cells, side_cells, CELL_UNKNOWN);
+        map = Map(side_cells, side_cells, CELL_UNKNOWN);
         ROS_INFO("map size: %ldx%ld", map.num_rows(), map.num_cols());
 
         prev_robot_i = robot_i = map.row_relative_origo(0);
@@ -76,7 +96,7 @@ public:
 
         robot_position_subscriber = nh.subscribe<geometry_msgs::Point>(TOPIC_ROBOT_POSITION, 1, &Mapper::robot_position_callback, this);
         ir_sensors_subscriber = nh.subscribe<s8_msgs::IRDistances>(TOPIC_IR_DISTANCES, 1, &Mapper::ir_distances_callback, this);
-        pose_subscriber = nh.subscribe<geometry_msgs::PoseStamped>(TOPIC_POSE, 1, &Mapper::pose_callback, this);
+        pose_subscriber = nh.subscribe<geometry_msgs::Pose2D>(TOPIC_POSE, 1, &Mapper::pose_callback, this);
     }
 
     void update() {
@@ -94,12 +114,12 @@ public:
 
             for(size_t i = 0; i < map.num_rows(); i++) {
                 for(size_t j = 0; j < map.num_cols(); j++) {
-                    visualization_msgs::Marker & marker = markers[i * map.num_rows() + j];
+                    visualization_msgs::Marker & marker = markers[i * map.num_cols() + j];
 
                     marker.header.frame_id = "map";
                     marker.header.stamp = ros::Time();
                     marker.ns = "s8";
-                    marker.id = i * map.num_rows() + j;
+                    marker.id = i * map.num_cols() + j;
                     marker.type = visualization_msgs::Marker::CUBE;
                     marker.action = visualization_msgs::Marker::ADD;
                     marker.pose.position.x = i * resolution - side_length / 2;
@@ -150,6 +170,18 @@ public:
         } else {
             ROS_INFO("Sending cached map to be rendered");
         }
+
+        auto render_sensors = [&markers, this](Coordinate sensor_position) {
+            MapCoordinate map_coordinate = cartesian_to_grid(get_sensor_cartesian_position(sensor_position));
+            visualization_msgs::Marker & marker = markers[map_coordinate.i * map.num_cols() + map_coordinate.j];
+            marker.color.a = 1.0;
+            marker.color.r = 0.0;
+            marker.color.g = 0.0;
+            marker.color.b = 1.0;
+        };
+
+        render_sensors(left_back_position);
+        render_sensors(left_front_position);
 
         rviz_markers_publisher.publish(markerArray);
 
@@ -204,14 +236,14 @@ public:
 private:
     void robot_position_callback(const geometry_msgs::Point::ConstPtr & point) {
         robot_x = point->x;
-        robot_z = point->z;
+        robot_y = point->z;
 
         if(!is_zero(point->y)) {
             ROS_WARN("Y part of robot Point position is not used. Only X and Z!");
         }
 
         int movement_i = (robot_x - prev_robot_x) / resolution;
-        int movement_j = (robot_z - prev_robot_z) / resolution;
+        int movement_j = (robot_y - prev_robot_y) / resolution;
 
         robot_i = prev_robot_i + movement_i;
         robot_j = prev_robot_j + movement_j;
@@ -229,10 +261,27 @@ private:
         double left_front = ir_distances->left_front;
     }
 
-    void pose_callback(const geometry_msgs::PoseStamped::ConstPtr & pose) {
-        robot_x = pose->pose.position.x;
-        robot_z = pose->pose.position.z;
-        robot_rotation = pose->pose.orientation.y;
+    void pose_callback(const geometry_msgs::Pose2D::ConstPtr & pose) {
+        robot_x = pose->x;
+        robot_y = pose->y;
+        robot_rotation = radians_to_degrees(pose->theta);
+    }
+
+    Coordinate get_sensor_cartesian_position(Coordinate sensor_relative_position) {
+        if(robot_rotation == 0) {
+            return Coordinate(robot_x + sensor_relative_position.x, robot_y + sensor_relative_position.y);
+        }
+        
+    }
+
+    MapCoordinate cartesian_to_grid(Coordinate position) {
+        int map_x = position.x / resolution;
+        int map_y = position.y / resolution;
+        int x = map.row_relative_origo(map_x);
+        int y = map.col_relative_origo(map_y);
+
+        ROS_INFO("resolution: %lf, x: %lf, y: %lf, map_x: %d map_y: %d fx: %d fy: %d", resolution, position.x, position.y, map_x, map_y, x, y);
+        return MapCoordinate(x, y);
     }
 
     bool should_render() {

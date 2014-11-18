@@ -358,20 +358,16 @@ private:
     }
 
     Coordinate robot_coord_system_to_world_coord_system(Coordinate coordinate) {
-        const int NORTH = 90;
-        const int SOUTH = 270;
-        const int EAST = 0;
-        const int WEST = 180;
-        
-        if(robot_rotation == EAST) {
-            return Coordinate(robot_x + coordinate.y, robot_y - coordinate.x);
-        } else if(robot_rotation == NORTH) {
-            return Coordinate(robot_x + coordinate.x, robot_y + coordinate.y);
-        } else if(robot_rotation == WEST) {
-            return Coordinate(robot_x - coordinate.y, robot_y + coordinate.x);
-        } else if(robot_rotation == SOUTH) {
-            return Coordinate(robot_x - coordinate.x, robot_y - coordinate.y);
-        }
+        double theta = degrees_to_radians(robot_rotation - 90);
+        double x = coordinate.x;
+        double y = coordinate.y;
+        double xc = robot_x;
+        double yc = robot_y;
+
+        double xr = (x - xc) * std::cos(theta) - (y - yc) * std::sin(theta) + xc;
+        double yr = (y - yc) * std::cos(theta) + (x - xc) * std::sin(theta) + yc;
+
+        return Coordinate(xr, yr);
     }
 
     bool should_render() {

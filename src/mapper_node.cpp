@@ -121,8 +121,13 @@ public:
         auto sensor_reading = [this](Coordinate sensor_position, double reading, int dir) {
             if(is_valid_ir_value(reading)) {
                 Coordinate obstacle_relative_robot_position = Coordinate(sensor_position.x + dir * reading, sensor_position.y);
-                Coordinate world_position = robot_coord_system_to_world_coord_system(obstacle_relative_robot_position);
-                MapCoordinate map_position = cartesian_to_grid(world_position);
+                Coordinate obstacle_world_position = robot_coord_system_to_world_coord_system(obstacle_relative_robot_position);
+                MapCoordinate map_position = cartesian_to_grid(obstacle_world_position);
+
+                auto cells = get_cells_touching_line(robot_coord_system_to_world_coord_system(sensor_position), obstacle_world_position);
+                for(auto mc : cells) {
+                    map[mc] = CELL_FREE;
+                }
 
                 map[map_position] = CELL_OBSTACLE;
             }
@@ -249,11 +254,6 @@ public:
         render_sensor(right_front_position, 0, 1, 0);
 
         render_robot(Coordinate(robot_x, robot_y), 0, 0, 0);
-
-        auto cells = get_cells_touching_line(Coordinate(0.1, 0.1), Coordinate(-0.2, 0.2));
-        for(auto mc : cells) {
-            render_point(mc, 0.5, 1, 1);
-        }
 
         rviz_markers_publisher.publish(markerArray);
 

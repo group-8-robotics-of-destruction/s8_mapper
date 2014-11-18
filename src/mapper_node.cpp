@@ -5,6 +5,7 @@
 #include <s8_utils/math.h>
 #include <s8_pose/pose_node.h>
 #include <Map.h>
+#include <unordered_set>
 
 #include <visualization_msgs/MarkerArray.h>
 #include <visualization_msgs/Marker.h>
@@ -39,6 +40,10 @@ struct Coordinate {
 
     Coordinate() : x(0.0), y(0.0) {}
     Coordinate(double x, double y) : x(x), y(y) {}
+
+    bool operator== (Coordinate coordinate) {
+        return is_zero(x - coordinate.x) && is_zero(y - coordinate.y);
+    }
 };
 
 std::string to_string(Coordinate coordinate) {
@@ -245,6 +250,11 @@ public:
 
         render_robot(Coordinate(robot_x, robot_y), 0, 0, 0);
 
+        auto cells = get_cells_touching_line(Coordinate(0.1, 0.1), Coordinate(-0.2, 0.2));
+        for(auto mc : cells) {
+            render_point(mc, 0.5, 1, 1);
+        }
+
         rviz_markers_publisher.publish(markerArray);
 
         map_state_rendered = map_state;
@@ -368,6 +378,51 @@ private:
         double yr = (y - yc) * std::cos(theta) + (x - xc) * std::sin(theta) + yc;
 
         return Coordinate(xr, yr);
+    }
+
+    std::unordered_set<MapCoordinate, MapCoordinateHash> get_cells_touching_line(Coordinate p1, Coordinate p2) {
+        double step_size = resolution / 2;
+
+        std::unordered_set<MapCoordinate, MapCoordinateHash> result;
+
+        if(!is_zero(p2.x - p1.x) && !is_zero(p2.y - p1.y)) {
+            double m = (p2.y - p1.y) / (p2.x - p1.x);
+            double b = p1.y - m * p1.x;
+            auto line = [m, b](double x) {
+                return x * m + b;
+            };
+
+            double start_x = p1.x < p2.x ? p1.x : p2.x;
+            double end_x = p1.x < p2.x ? p2.x : p1.x;
+
+            for(double x = start_x; x <= end_x; x += step_size) {
+                double y = line(x);
+                MapCoordinate mc = cartesian_to_grid(Coordinate(x, y));
+                result.insert(mc);
+            }
+        } else {
+            if(is_zero(p1.x - p2.x)) {
+                //Same x point. Step through y
+                double start_y = p1.y < p2.y ? p1.y : p2.y;
+                double end_y = p1.y < p2.y ? p2.y : p1.y;
+                for(double y = start_y; y <= end_y; y += step_size) {
+                    MapCoordinate mc = cartesian_to_grid(Coordinate(p1.x, y));
+                    result.insert(mc);
+                }
+            } else if(is_zero(p1.y - p2.y)) {
+                //Same y point. Step through x
+                double start_x = p1.x < p2.x ? p1.x : p2.x;
+                double end_x = p1.x < p2.x ? p2.x : p1.x;
+                for(double x = start_x; x <= end_x; x += step_size) {
+                    MapCoordinate mc = cartesian_to_grid(Coordinate(x, p1.y));
+                    result.insert(mc);
+                }
+            } else {
+                ROS_FATAL("WTF");
+            }
+        }
+        
+        return result;
     }
 
     bool should_render() {

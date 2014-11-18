@@ -12,6 +12,18 @@ namespace s8 {
 
             MapCoordinate() : i(0), j(0) {}
             MapCoordinate(int i, int j) : i(i), j(j) {}
+
+            bool operator== (MapCoordinate coordinate) const {
+                return i == coordinate.i && j == coordinate.j;
+            }
+        };
+
+        struct MapCoordinateHash {
+            std::size_t operator () (const MapCoordinate & mc) const {
+                // Modified Bernstein hash
+                // http://eternallyconfuzzled.com/tuts/algorithms/jsw_tut_hashing.aspx
+                return ( 33 * mc.i ) ^ mc.j;
+            }
         };
 
         std::string to_string(MapCoordinate coordinate) {
@@ -32,8 +44,8 @@ namespace s8 {
                     return cols;
                 }
 
-                int & operator[] (size_t index) throw(std::out_of_range) {
-                    return row.at(index);
+                int & operator[] (size_t indei) throw(std::out_of_range) {
+                    return row.at(indei);
                 }
             };
 

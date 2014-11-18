@@ -176,17 +176,17 @@ public:
             ROS_INFO("Sending cached map to be rendered");
         }
 
-        auto render_sensors = [&markers, this](Coordinate sensor_position) {
+        auto render_sensors = [&markers, this](Coordinate sensor_position, double r, double g, double b) {
             MapCoordinate map_coordinate = cartesian_to_grid(get_sensor_cartesian_position(sensor_position));
             visualization_msgs::Marker & marker = markers[map_coordinate.i * map.num_cols() + map_coordinate.j];
             marker.color.a = 1.0;
-            marker.color.r = 0.0;
-            marker.color.g = 0.0;
-            marker.color.b = 1.0;
+            marker.color.r = r;
+            marker.color.g = g;
+            marker.color.b = b;
         };
 
-        render_sensors(left_back_position);
-        render_sensors(left_front_position);
+        render_sensors(left_back_position, 0, 0, 1);
+        render_sensors(left_front_position, 0, 1, 0);
 
         rviz_markers_publisher.publish(markerArray);
 
@@ -275,7 +275,7 @@ private:
 
     Coordinate get_sensor_cartesian_position(Coordinate sensor_relative_position) {
         ROS_INFO("robot_ration: %d", robot_rotation);
-        if(robot_rotation == 0) {
+        if(robot_rotation == 90) {
             return Coordinate(robot_x + sensor_relative_position.x, robot_y + sensor_relative_position.y);
         } else if(robot_rotation == 270) {
             return Coordinate(robot_x - sensor_relative_position.x, robot_y - sensor_relative_position.y);

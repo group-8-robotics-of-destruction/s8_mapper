@@ -163,14 +163,6 @@ public:
                     marker.scale.y = resolution;
                     marker.scale.z = resolution;
 
-                    if(robot_i == i && robot_j == j) {
-                        marker.color.a = 1.0;
-                        marker.color.r = 0.0;
-                        marker.color.g = 0.0;
-                        marker.color.b = 0.0;
-                        continue;
-                    }
-
                     if(is_point_obstacle(i, j)) {
                         marker.color.a = 1.0;
                         marker.color.r = 1.0;
@@ -237,14 +229,21 @@ public:
             render_point(cartesian_to_grid(position_world_coord_system), r, g, b);
         };
 
+        auto render_robot = [this, render_point](Coordinate robot_position, double r, double g, double b) {
+            MapCoordinate mc = cartesian_to_grid(robot_position);
+            render_point(mc, r, g, b);
+        };
+
 
         //render_sensors(left_front_position, 0, 1, 0);
         //render_sensors(left_front_position, right_front_position, 0, 1, 0);
 
-        render_sensor(left_front_position, 1, 0, 0);
+        render_sensor(left_front_position, 1, 1, 0);
         render_sensor(left_back_position, 1, 0, 1);
         render_sensor(right_back_position, 0, 0, 1);
         render_sensor(right_front_position, 0, 1, 0);
+
+        render_robot(Coordinate(robot_x, robot_y), 0, 0, 0);
 
         rviz_markers_publisher.publish(markerArray);
 

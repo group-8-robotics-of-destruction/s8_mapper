@@ -24,6 +24,7 @@
 
 #define TOPIC_IR_DISTANCES          s8::ir_sensors_node::TOPIC_IR_DISTANCES
 #define TOPIC_POSE                  s8::pose_node::TOPIC_POSE_SIMPLE
+#define TRESHOLD_VALUE              s8::ir_sensors_node::TRESHOLD_VALUE
 
 using namespace s8::mapper_node;
 using namespace s8::map;
@@ -65,6 +66,10 @@ class Mapper : public s8::Node {
     Coordinate left_front_position;
     Coordinate right_back_position;
     Coordinate right_front_position;
+    double left_back_reading;
+    double left_front_reading;
+    double right_front_reading;
+    double right_back_reading;
 
     bool render;
     long map_state;
@@ -75,7 +80,7 @@ class Mapper : public s8::Node {
     const int render_frames_to_skip;
 
 public:
-    Mapper() : render_frame_skips(0), render_frames_to_skip((HZ / RENDER_HZ) - 1), robot_rotation(0), map_state(0), map_state_rendered(-1), robot_x(0.0), robot_y(0.0), prev_robot_x(0.0), prev_robot_y(0.0) {
+    Mapper() : left_back_reading(TRESHOLD_VALUE), left_front_reading(TRESHOLD_VALUE), right_front_reading(TRESHOLD_VALUE), right_back_reading(TRESHOLD_VALUE), render_frame_skips(0), render_frames_to_skip((HZ / RENDER_HZ) - 1), robot_rotation(0), map_state(0), map_state_rendered(-1), robot_x(0.0), robot_y(0.0), prev_robot_x(0.0), prev_robot_y(0.0) {
         init_params();
         print_params();
 
@@ -108,6 +113,22 @@ public:
     }
 
     void update() {
+        auto sensor_reading = [this](Coordinate sensor_position, double reading, int dir) {
+            if(is_valid_ir_value(reading)) {
+                Coordinate obstacle_relative_robot_position = Coordinate(sensor_position.x + dir * reading, sensor_position.y);
+                Coordinate world_position = robot_coord_system_to_world_coord_system(obstacle_relative_robot_position);
+                MapCoordinate map_position = cartesian_to_grid(world_position);
+
+                map[map_position] = CELL_OBSTACLE;
+            }
+        };
+
+        sensor_reading(left_back_position, left_back_reading, -1);
+        sensor_reading(left_front_position, left_front_reading, -1);
+        sensor_reading(right_back_position, right_back_reading, 1);
+        sensor_reading(right_front_position, right_front_reading, 1);
+
+
         if(should_render()) {
             ROS_INFO("Rendering to rviz");
             renderToRviz();
@@ -299,8 +320,10 @@ private:
     }
 
     void ir_distances_callback(const s8_msgs::IRDistances::ConstPtr & ir_distances) {
-        double left_back = ir_distances->left_back;
-        double left_front = ir_distances->left_front;
+        left_back_reading = ir_distances->left_back;
+        left_front_reading = ir_distances->left_front;
+        right_back_reading = ir_distances->right_back;
+        right_front_reading = ir_distances->right_front;
     }
 
     void pose_callback(const geometry_msgs::Pose2D::ConstPtr & pose) {

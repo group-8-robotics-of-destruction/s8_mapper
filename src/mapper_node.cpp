@@ -13,13 +13,14 @@
 #include <s8_msgs/IRDistances.h>
 
 #define HZ                          10
+#define RENDER_HZ                   1
 
 #define PARAM_SIDE_LENGTH_NAME      "side_length"
-#define PARAM_SIDE_LENGTH_DEFAULT   10.0
+#define PARAM_SIDE_LENGTH_DEFAULT   1.0
 #define PARAM_RESOLUTION_NAME       "resolution"
-#define PARAM_RESOLUTION_DEFAULT    0.05
+#define PARAM_RESOLUTION_DEFAULT    0.02
 #define PARAM_RENDER_NAME           "render"
-#define PARAM_RENDER_DEFAULT        false
+#define PARAM_RENDER_DEFAULT        true
 
 #define TOPIC_IR_DISTANCES          s8::ir_sensors_node::TOPIC_IR_DISTANCES
 #define TOPIC_POSE                  s8::pose_node::TOPIC_POSE_SIMPLE
@@ -50,7 +51,7 @@ class Mapper : public s8::Node {
     ros::Subscriber robot_position_subscriber;
     ros::Subscriber ir_sensors_subscriber;
     ros::Subscriber pose_subscriber;
-    double robot_rotation;
+    int robot_rotation;
     double robot_x;
     double robot_y;
     double prev_robot_x;
@@ -68,8 +69,11 @@ class Mapper : public s8::Node {
     long map_state_rendered;
     ros::Publisher rviz_markers_publisher;
 
+    int render_frame_skips;
+    const int render_frames_to_skip;
+
 public:
-    Mapper() : robot_rotation(0.0), map_state(0), map_state_rendered(-1), robot_x(0.0), robot_y(0.0), prev_robot_x(0.0), prev_robot_y(0.0) {
+    Mapper() : render_frame_skips(0), render_frames_to_skip((HZ / RENDER_HZ) - 1), robot_rotation(0), map_state(0), map_state_rendered(-1), robot_x(0.0), robot_y(0.0), prev_robot_x(0.0), prev_robot_y(0.0) {
         init_params();
         print_params();
 
@@ -101,6 +105,7 @@ public:
 
     void update() {
         if(should_render()) {
+            ROS_INFO("Rendering to rviz");
             renderToRviz();
         }
     }
@@ -110,7 +115,7 @@ public:
         markerArray.markers = std::vector<visualization_msgs::Marker>((map.num_cells()));
         auto & markers = markerArray.markers;
 
-        if(map_state != map_state_rendered) {
+        if(true || map_state != map_state_rendered) {
 
             for(size_t i = 0; i < map.num_rows(); i++) {
                 for(size_t j = 0; j < map.num_cols(); j++) {
@@ -265,13 +270,16 @@ private:
         robot_x = pose->x;
         robot_y = pose->y;
         robot_rotation = radians_to_degrees(pose->theta);
+        ROS_INFO("%lf %d", pose->theta, radians_to_degrees(pose->theta));
     }
 
     Coordinate get_sensor_cartesian_position(Coordinate sensor_relative_position) {
+        ROS_INFO("robot_ration: %d", robot_rotation);
         if(robot_rotation == 0) {
             return Coordinate(robot_x + sensor_relative_position.x, robot_y + sensor_relative_position.y);
+        } else if(robot_rotation == 270) {
+            return Coordinate(robot_x - sensor_relative_position.x, robot_y - sensor_relative_position.y);
         }
-        
     }
 
     MapCoordinate cartesian_to_grid(Coordinate position) {
@@ -289,11 +297,14 @@ private:
             return false;
         }
 
-        if(map_state == map_state_rendered) {
-            return false;
+        if(render_frame_skips == render_frames_to_skip) {
+            render_frame_skips = 0;
+            return true;
         }
 
-        return true;
+        render_frame_skips++;
+
+        return false;
     }
 
     void init_params() {

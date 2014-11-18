@@ -109,7 +109,7 @@ namespace s8 {
             }
 
             int & operator[] (MapCoordinate coordinate) throw (std::out_of_range) {
-                return matrix.at(coordinate.i)[coordinate.i];
+                return matrix.at(coordinate.i)[coordinate.j];
             }
         };
     }

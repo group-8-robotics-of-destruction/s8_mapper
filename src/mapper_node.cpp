@@ -63,6 +63,8 @@ class Mapper : public s8::Node {
 
     Coordinate left_back_position;
     Coordinate left_front_position;
+    Coordinate right_back_position;
+    Coordinate right_front_position;
 
     bool render;
     long map_state;
@@ -79,6 +81,8 @@ public:
 
         left_back_position = Coordinate(-0.045, -0.075);
         left_front_position = Coordinate(-0.045, 0.075);
+        right_back_position = Coordinate(0.045, -0.075);
+        right_front_position = Coordinate(0.045, 0.075);
 
         double side_cells_d = side_length / resolution;
         size_t side_cells = (size_t)side_cells_d;
@@ -176,8 +180,7 @@ public:
             ROS_INFO("Sending cached map to be rendered");
         }
 
-        auto render_sensors = [&markers, this](Coordinate sensor_position, double r, double g, double b) {
-            MapCoordinate map_coordinate = cartesian_to_grid(get_sensor_cartesian_position(sensor_position));
+        auto render_point = [&markers, this](MapCoordinate map_coordinate, double r, double g, double b) {
             visualization_msgs::Marker & marker = markers[map_coordinate.i * map.num_cols() + map_coordinate.j];
             marker.color.a = 1.0;
             marker.color.r = r;
@@ -185,8 +188,42 @@ public:
             marker.color.b = b;
         };
 
-        render_sensors(left_back_position, 0, 0, 1);
-        render_sensors(left_front_position, 0, 1, 0);
+        auto render_sensor = [&markers, this, render_point](Coordinate sensor_position, double r, double g, double b) {
+            Coordinate world_position = robot_coord_system_to_world_coord_system(sensor_position);
+            ROS_INFO("world: x: %lf, y: %lf", world_position.x, world_position.y);
+            MapCoordinate map_coordinate = cartesian_to_grid(world_position);
+            render_point(map_coordinate, r, g, b);
+        };
+
+        auto render_sensor_real = [&markers, this, render_point](Coordinate sensor_position, double r, double g, double b) {
+            //Hypotenuse of sensor relative origo of robot
+            double h_s = std::sqrt(sensor_position.x * sensor_position.x + sensor_position.y * sensor_position.y);
+
+            //Angle of sensor hypotenuse relative robot forward normal
+            double theta_s = std::asin(sensor_position.y / h_s);
+
+            //Angle of sensor relative world coordinate system
+            double theta = degrees_to_radians(robot_rotation) + theta_s;
+
+            double x = h_s * std::cos(theta);
+            double y = h_s * std::sin(theta);
+
+            ROS_INFO("sx: %lf sy: %lf, h_s: %lf, theta_s: %lf, theta: %lf, x: %lf, y: %lf", sensor_position.x, sensor_position.y, h_s, theta_s, theta, x, y);
+
+            Coordinate position_world_coord_system = robot_coord_system_to_world_coord_system(Coordinate(x, y));
+            ROS_INFO("world: x: %lf, y: %lf", position_world_coord_system.x, position_world_coord_system.y);
+
+            render_point(cartesian_to_grid(position_world_coord_system), r, g, b);
+        };
+
+
+        //render_sensors(left_front_position, 0, 1, 0);
+        //render_sensors(left_front_position, right_front_position, 0, 1, 0);
+
+        render_sensor(left_front_position, 1, 0, 0);
+        render_sensor(left_back_position, 1, 0, 1);
+        render_sensor(right_back_position, 0, 0, 1);
+        render_sensor(right_front_position, 0, 1, 0);
 
         rviz_markers_publisher.publish(markerArray);
 
@@ -275,21 +312,44 @@ private:
 
     Coordinate get_sensor_cartesian_position(Coordinate sensor_relative_position) {
         ROS_INFO("robot_ration: %d", robot_rotation);
-        if(robot_rotation == 90) {
+
+        const int NORTH = 90;
+        const int SOUTH = 270;
+        const int EAST = 0;
+        const int WEST = 180;
+
+        if(robot_rotation == EAST) {
             return Coordinate(robot_x + sensor_relative_position.x, robot_y + sensor_relative_position.y);
-        } else if(robot_rotation == 270) {
+        } else if(robot_rotation == SOUTH) {
             return Coordinate(robot_x - sensor_relative_position.x, robot_y - sensor_relative_position.y);
         }
     }
 
     MapCoordinate cartesian_to_grid(Coordinate position) {
-        int map_x = position.x / resolution;
-        int map_y = position.y / resolution;
+        int map_x = (position.x / resolution) + sign(position.x)*0.99;
+        int map_y = (position.y / resolution) + sign(position.y)*0.99;
         int x = map.row_relative_origo(map_x);
         int y = map.col_relative_origo(map_y);
 
         ROS_INFO("resolution: %lf, x: %lf, y: %lf, map_x: %d map_y: %d fx: %d fy: %d", resolution, position.x, position.y, map_x, map_y, x, y);
         return MapCoordinate(x, y);
+    }
+
+    Coordinate robot_coord_system_to_world_coord_system(Coordinate coordinate) {
+        const int NORTH = 90;
+        const int SOUTH = 270;
+        const int EAST = 0;
+        const int WEST = 180;
+        
+        if(robot_rotation == EAST) {
+            return Coordinate(robot_x + coordinate.y, robot_y - coordinate.x);
+        } else if(robot_rotation == NORTH) {
+            return Coordinate(robot_x + coordinate.x, robot_y + coordinate.y);
+        } else if(robot_rotation == WEST) {
+            return Coordinate(robot_x - coordinate.y, robot_y + coordinate.x);
+        } else if(robot_rotation == SOUTH) {
+            return Coordinate(robot_x - coordinate.x, robot_y - coordinate.y);
+        }
     }
 
     bool should_render() {

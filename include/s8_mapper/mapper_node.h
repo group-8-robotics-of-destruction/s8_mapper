@@ -8,6 +8,7 @@ namespace s8 {
         const std::string NODE_NAME =                       "s8_mapper_node";
 
         const std::string TOPIC_VISUALIZATION_MARKERS =     "/visualization_marker_array";
+        const std::string TOPIC_RENDER =                    "/s8/map/occupancy_grid";
         const std::string TOPIC_ROBOT_POSITION =            "robot_position";
 
         const int CELL_UNKNOWN =                            1;

@@ -307,6 +307,8 @@ public:
 
 private:
     void robot_position_callback(const geometry_msgs::Point::ConstPtr & point) {
+        prev_robot_x = robot_x;
+        prev_robot_y = robot_y;
         robot_x = point->x;
         robot_y = point->z;
 
@@ -342,21 +344,6 @@ private:
         ROS_INFO("%lf %d", pose->theta, radians_to_degrees(pose->theta));
     }
 
-    Coordinate get_sensor_cartesian_position(Coordinate sensor_relative_position) {
-        ROS_INFO("robot_ration: %d", robot_rotation);
-
-        const int NORTH = 90;
-        const int SOUTH = 270;
-        const int EAST = 0;
-        const int WEST = 180;
-
-        if(robot_rotation == EAST) {
-            return Coordinate(robot_x + sensor_relative_position.x, robot_y + sensor_relative_position.y);
-        } else if(robot_rotation == SOUTH) {
-            return Coordinate(robot_x - sensor_relative_position.x, robot_y - sensor_relative_position.y);
-        }
-    }
-
     MapCoordinate cartesian_to_grid(Coordinate position) {
         int map_x = (position.x / resolution) + sign(position.x)*0.99;
         int map_y = (position.y / resolution) + sign(position.y)*0.99;
@@ -371,11 +358,13 @@ private:
         double theta = degrees_to_radians(robot_rotation - 90);
         double x = coordinate.x;
         double y = coordinate.y;
-        double xc = robot_x;
-        double yc = robot_y;
+        double xc = prev_robot_x;
+        double yc = prev_robot_y;
 
-        double xr = (x - xc) * std::cos(theta) - (y - yc) * std::sin(theta) + xc;
-        double yr = (y - yc) * std::cos(theta) + (x - xc) * std::sin(theta) + yc;
+        ROS_INFO("prev_robot_x: %lf, prev_robot_y: %lf, robot_x: %lf, robot_y: %lf", prev_robot_x, prev_robot_y, robot_x, robot_y);
+
+        double xr = (x - xc) * std::cos(theta) - (y - yc) * std::sin(theta) + robot_x;
+        double yr = (y - yc) * std::cos(theta) + (x - xc) * std::sin(theta) + robot_y;
 
         return Coordinate(xr, yr);
     }

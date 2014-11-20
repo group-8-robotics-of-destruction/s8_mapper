@@ -15,7 +15,7 @@
 #include <s8_msgs/IRDistances.h>
 
 #define HZ                          10
-#define RENDER_HZ                   1
+#define RENDER_HZ                   10
 
 #define PARAM_SIDE_LENGTH_NAME      "side_length"
 #define PARAM_SIDE_LENGTH_DEFAULT   1.0
@@ -23,6 +23,10 @@
 #define PARAM_RESOLUTION_DEFAULT    0.02
 #define PARAM_RENDER_NAME           "render"
 #define PARAM_RENDER_DEFAULT        true
+#define PARAM_ROBOT_WIDTH_NAME      "robot_width"
+#define PARAM_ROBOT_WIDTH_DEFAULT   0.235
+#define PARAM_ROBOT_LENGTH_NAME     "robot_length"
+#define PARAM_ROBOT_LENGTH_DEFAULT  0.2
 
 #define TOPIC_IR_DISTANCES          s8::ir_sensors_node::TOPIC_IR_DISTANCES
 #define TOPIC_POSE                  s8::pose_node::TOPIC_POSE_SIMPLE
@@ -67,6 +71,8 @@ class Mapper : public s8::Node {
     size_t prev_robot_j;
     size_t robot_i;
     size_t robot_j;
+    double robot_width;
+    double robot_length;
 
     Coordinate left_back_position;
     Coordinate left_front_position;
@@ -121,7 +127,31 @@ public:
     }
 
     void update() {
-        auto sensor_reading = [this](Coordinate sensor_position, double reading, int dir) {
+        auto free_cell = [](int & cell) {
+            if(cell == CELL_UNKNOWN) {
+                cell = 50;
+            } else {
+                cell -= 5;
+            }
+
+            if(cell < 0) {
+                cell = 0;
+            }
+        };
+
+        auto obstacle_cell = [](int & cell) {
+            if(cell == CELL_UNKNOWN) {
+                cell = 50;
+            } else {
+                cell += 10;
+            }
+
+            if(cell > 100) {
+                cell = 100;
+            }
+        };
+
+        auto sensor_reading = [this, obstacle_cell, free_cell](Coordinate sensor_position, double reading, int dir) {
             if(is_valid_ir_value(reading) && reading <= 0.2) {
                 Coordinate obstacle_relative_robot_position = Coordinate(sensor_position.x + dir * reading, sensor_position.y);
                 Coordinate obstacle_world_position = robot_coord_system_to_world_coord_system(obstacle_relative_robot_position);
@@ -129,29 +159,10 @@ public:
 
                 auto cells = get_cells_touching_line(robot_coord_system_to_world_coord_system(sensor_position), obstacle_world_position);
                 for(auto mc : cells) {
-                    auto & cell = map[mc];
-                    if(cell == CELL_UNKNOWN) {
-                        cell = 50;
-                    } else {
-                        cell -= 5;
-                    }
-
-                    if(cell < 0) {
-                        cell = 0;
-                    }
+                    free_cell(map[mc]);
                 }
 
-                auto & cell = map[map_position];
-
-                if(cell == CELL_UNKNOWN) {
-                    cell = 50;
-                } else {
-                    cell += 10;
-                }
-
-                if(cell > 100) {
-                    cell = 100;
-                }
+                obstacle_cell(map[map_position]);
             }
         };
 
@@ -160,7 +171,24 @@ public:
         sensor_reading(right_back_position, right_back_reading, 1);
         sensor_reading(right_front_position, right_front_reading, 1);
 
+        //Mark the area where to robot body is as free.
+        Coordinate left_front = robot_coord_system_to_world_coord_system(Coordinate(-robot_width / 2, robot_length / 2));
+        Coordinate left_back = robot_coord_system_to_world_coord_system(Coordinate(-robot_width / 2, -robot_length / 2));
+        Coordinate right_front = robot_coord_system_to_world_coord_system(Coordinate(robot_width / 2, robot_length / 2));
+        Coordinate right_back = robot_coord_system_to_world_coord_system(Coordinate(robot_width / 2, -robot_length / 2));
 
+        auto free_between = [this, free_cell](Coordinate coordinate1, Coordinate coordinate2) {
+            auto cells = get_cells_touching_line(coordinate1, coordinate2);
+            for(auto mc : cells) {
+                free_cell(map[mc]);
+            }
+        };
+
+        free_between(left_front, right_front);
+        free_between(right_front, right_back);
+        free_between(right_back, left_back);
+        free_between(left_back, left_front);
+        
         if(should_render()) {
             ROS_INFO("Rendering to rviz");
             renderToRviz();
@@ -460,6 +488,8 @@ private:
         add_param(PARAM_RENDER_NAME, render, PARAM_RENDER_DEFAULT);
         add_param(PARAM_SIDE_LENGTH_NAME, side_length, PARAM_SIDE_LENGTH_DEFAULT);
         add_param(PARAM_RESOLUTION_NAME, resolution, PARAM_RESOLUTION_DEFAULT);
+        add_param(PARAM_ROBOT_WIDTH_NAME, robot_width, PARAM_ROBOT_WIDTH_DEFAULT);
+        add_param(PARAM_ROBOT_LENGTH_NAME, robot_length, PARAM_ROBOT_LENGTH_DEFAULT);
     }
 };
 

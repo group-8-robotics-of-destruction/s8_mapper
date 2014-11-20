@@ -4,11 +4,12 @@
 #include <s8_ir_sensors/ir_sensors_node.h>
 #include <s8_utils/math.h>
 #include <s8_pose/pose_node.h>
-#include <Map.h>
+#include <s8_mapper/Map.h>
 #include <unordered_set>
 
 #include <visualization_msgs/MarkerArray.h>
 #include <visualization_msgs/Marker.h>
+#include <nav_msgs/OccupancyGrid.h>
 #include <geometry_msgs/Point.h>
 #include <geometry_msgs/Pose2D.h>
 #include <s8_msgs/IRDistances.h>
@@ -79,7 +80,7 @@ class Mapper : public s8::Node {
     bool render;
     long map_state;
     long map_state_rendered;
-    ros::Publisher rviz_markers_publisher;
+    ros::Publisher rviz_publisher;
 
     int render_frame_skips;
     const int render_frames_to_skip;
@@ -109,7 +110,7 @@ public:
         prev_robot_j = robot_j = map.col_relative_origo(0);
 
         if(render) {
-            rviz_markers_publisher = nh.advertise<visualization_msgs::MarkerArray>(TOPIC_VISUALIZATION_MARKERS, 1, true);
+            rviz_publisher = nh.advertise<nav_msgs::OccupancyGrid>(TOPIC_RENDER, 1, true);
         }
 
         robot_position_subscriber = nh.subscribe<geometry_msgs::Point>(TOPIC_ROBOT_POSITION, 1, &Mapper::robot_position_callback, this);
@@ -146,7 +147,40 @@ public:
     }
 
     void renderToRviz() {
-        visualization_msgs::MarkerArray markerArray;
+        nav_msgs::OccupancyGrid grid_msg;
+        grid_msg.header.frame_id = "map";
+        grid_msg.header.stamp = ros::Time();
+        grid_msg.info.resolution = resolution;
+        grid_msg.info.width = map.num_cols();
+        grid_msg.info.height = map.num_rows();
+        grid_msg.info.origin.position.x = -(float)map.get_origo_col() * resolution;
+        grid_msg.info.origin.position.y = -(float)map.get_origo_row() * resolution;
+        grid_msg.data = std::vector<signed char>(map.num_cells());
+        auto & grid = grid_msg.data;
+
+        for(size_t i = 0; i < map.num_rows(); i++) {
+            for(size_t j = 0; j < map.num_cols(); j++) {
+                auto & cell = grid[j * map.num_rows() + i];
+
+                if(is_point_obstacle(i, j)) {
+                    cell = 100;
+                } else if(is_point_wall(i, j)) {
+                    cell = 100;
+                } else if(is_point_free(i, j)) {
+                    cell = 0;
+                } else if(is_point_object(i, j)) {
+                    cell = 100;
+                } else if(is_point_unknown(i, j)) {
+                    cell = -1;
+                } else {
+                    ROS_WARN("Unknown cell type: %d at (%ld,%ld)", map[i][j], i, j);
+                }
+            }
+        }
+
+        rviz_publisher.publish(grid_msg);
+
+        /*visualization_msgs::MarkerArray markerArray;
         markerArray.markers = std::vector<visualization_msgs::Marker>((map.num_cells()));
         auto & markers = markerArray.markers;
 
@@ -258,6 +292,7 @@ public:
         rviz_markers_publisher.publish(markerArray);
 
         map_state_rendered = map_state;
+        */
     }
 
     bool is_point_value(size_t row_index, size_t col_index, int value) {
@@ -341,7 +376,7 @@ private:
         robot_x = pose->x;
         robot_y = pose->y;
         robot_rotation = radians_to_degrees(pose->theta);
-        ROS_INFO("%lf %d", pose->theta, radians_to_degrees(pose->theta));
+        ROS_INFO("%lf %d", pose->theta, (int)radians_to_degrees(pose->theta));
     }
 
     MapCoordinate cartesian_to_grid(Coordinate position) {

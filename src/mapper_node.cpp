@@ -89,10 +89,10 @@ public:
         init_params();
         print_params();
 
-        left_back_position = Coordinate(-0.045, -0.075);
-        left_front_position = Coordinate(-0.045, 0.075);
-        right_back_position = Coordinate(0.045, -0.075);
-        right_front_position = Coordinate(0.045, 0.075);
+        left_back_position = Coordinate(-0.0725, -0.065);
+        left_front_position = Coordinate(-0.0725, 0.07);
+        right_back_position = Coordinate(0.0825, -0.065);
+        right_front_position = Coordinate(0.0775, 0.07);
 
         double side_cells_d = side_length / resolution;
         size_t side_cells = (size_t)side_cells_d;

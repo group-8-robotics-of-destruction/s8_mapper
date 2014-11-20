@@ -81,6 +81,7 @@ class Mapper : public s8::Node {
     long map_state;
     long map_state_rendered;
     ros::Publisher rviz_publisher;
+    ros::Publisher rviz_markers_publisher;
 
     int render_frame_skips;
     const int render_frames_to_skip;
@@ -111,6 +112,7 @@ public:
 
         if(render) {
             rviz_publisher = nh.advertise<nav_msgs::OccupancyGrid>(TOPIC_RENDER, 1, true);
+            rviz_markers_publisher = nh.advertise<visualization_msgs::MarkerArray>(TOPIC_VISUALIZATION_MARKERS, 1, true);
         }
 
         robot_position_subscriber = nh.subscribe<geometry_msgs::Point>(TOPIC_ROBOT_POSITION, 1, &Mapper::robot_position_callback, this);
@@ -180,79 +182,45 @@ public:
 
         rviz_publisher.publish(grid_msg);
 
-        /*visualization_msgs::MarkerArray markerArray;
-        markerArray.markers = std::vector<visualization_msgs::Marker>((map.num_cells()));
+        visualization_msgs::MarkerArray markerArray;
+        markerArray.markers = std::vector<visualization_msgs::Marker>();
         auto & markers = markerArray.markers;
 
-        if(true || map_state != map_state_rendered) {
+        auto add_marker = [&markers, this](MapCoordinate coordinate, float a, float r, float g, float b) {
+            visualization_msgs::Marker marker;
 
-            for(size_t i = 0; i < map.num_rows(); i++) {
-                for(size_t j = 0; j < map.num_cols(); j++) {
-                    visualization_msgs::Marker & marker = markers[i * map.num_cols() + j];
-
-                    marker.header.frame_id = "map";
-                    marker.header.stamp = ros::Time();
-                    marker.ns = "s8";
-                    marker.id = i * map.num_cols() + j;
-                    marker.type = visualization_msgs::Marker::CUBE;
-                    marker.action = visualization_msgs::Marker::ADD;
-                    marker.pose.position.x = i * resolution - side_length / 2;
-                    marker.pose.position.y = j * resolution - side_length / 2;
-                    marker.pose.position.z = 0;
-                    marker.pose.orientation.x = 0;
-                    marker.pose.orientation.y = 0;
-                    marker.pose.orientation.z = 0;
-                    marker.pose.orientation.w = 0;
-                    marker.scale.x = resolution;
-                    marker.scale.y = resolution;
-                    marker.scale.z = resolution;
-
-                    if(is_point_obstacle(i, j)) {
-                        marker.color.a = 1.0;
-                        marker.color.r = 1.0;
-                        marker.color.g = 0.0;
-                        marker.color.b = 0.0;
-                    } else if(is_point_wall(i, j)) {
-
-                    } else if(is_point_free(i, j)) {
-                        marker.color.a = 0.0;
-                        marker.color.r = 1.0;
-                        marker.color.g = 1.0;
-                        marker.color.b = 1.0;
-                    } else if(is_point_object(i, j)) {
-
-                    } else if(is_point_unknown(i, j)) {
-                        marker.color.a = 0.5;
-                        marker.color.r = 1.0;
-                        marker.color.g = 1.0;
-                        marker.color.b = 1.0;
-                    } else {
-                        ROS_WARN("Unknown cell type: %d at (%ld,%ld)", map[i][j], i, j);
-                    }
-                }
-            }
-
-            ROS_INFO("Sending recomputed map to be rendered");
-        } else {
-            ROS_INFO("Sending cached map to be rendered");
-        }
-
-        auto render_point = [&markers, this](MapCoordinate map_coordinate, double r, double g, double b) {
-            visualization_msgs::Marker & marker = markers[map_coordinate.i * map.num_cols() + map_coordinate.j];
-            marker.color.a = 1.0;
+            marker.header.frame_id = "map";
+            marker.header.stamp = ros::Time();
+            marker.ns = "s8";
+            marker.id = markers.size();
+            marker.type = visualization_msgs::Marker::CUBE;
+            marker.action = visualization_msgs::Marker::ADD;
+            marker.pose.position.x = coordinate.i * resolution - side_length / 2;
+            marker.pose.position.y = coordinate.j * resolution - side_length / 2;
+            marker.pose.position.z = 0;
+            marker.pose.orientation.x = 0;
+            marker.pose.orientation.y = 0;
+            marker.pose.orientation.z = 0;
+            marker.pose.orientation.w = 0;
+            marker.scale.x = resolution;
+            marker.scale.y = resolution;
+            marker.scale.z = resolution;
+            marker.color.a = a;
             marker.color.r = r;
             marker.color.g = g;
             marker.color.b = b;
+
+            markers.push_back(marker);
         };
 
-        auto render_sensor = [&markers, this, render_point](Coordinate sensor_position, double r, double g, double b) {
+        auto render_sensor = [this, add_marker](Coordinate sensor_position, double r, double g, double b) {
             Coordinate world_position = robot_coord_system_to_world_coord_system(sensor_position);
             ROS_INFO("world: x: %lf, y: %lf", world_position.x, world_position.y);
             MapCoordinate map_coordinate = cartesian_to_grid(world_position);
-            render_point(map_coordinate, r, g, b);
+            add_marker(map_coordinate, 1.0, r, g, b);
         };
 
-        auto render_sensor_real = [&markers, this, render_point](Coordinate sensor_position, double r, double g, double b) {
+        auto render_sensor_real = [this, add_marker](Coordinate sensor_position, double r, double g, double b) {
             //Hypotenuse of sensor relative origo of robot
             double h_s = std::sqrt(sensor_position.x * sensor_position.x + sensor_position.y * sensor_position.y);
 
@@ -270,12 +238,12 @@ public:
             Coordinate position_world_coord_system = robot_coord_system_to_world_coord_system(Coordinate(x, y));
             ROS_INFO("world: x: %lf, y: %lf", position_world_coord_system.x, position_world_coord_system.y);
 
-            render_point(cartesian_to_grid(position_world_coord_system), r, g, b);
+            add_marker(cartesian_to_grid(position_world_coord_system), 1.0, r, g, b);
         };
 
-        auto render_robot = [this, render_point](Coordinate robot_position, double r, double g, double b) {
+        auto render_robot = [this, add_marker](Coordinate robot_position, double r, double g, double b) {
             MapCoordinate mc = cartesian_to_grid(robot_position);
-            render_point(mc, r, g, b);
+            add_marker(mc, 1.0, r, g, b);
         };
 
 
@@ -290,9 +258,6 @@ public:
         render_robot(Coordinate(robot_x, robot_y), 0, 0, 0);
 
         rviz_markers_publisher.publish(markerArray);
-
-        map_state_rendered = map_state;
-        */
     }
 
     bool is_point_value(size_t row_index, size_t col_index, int value) {
@@ -376,7 +341,6 @@ private:
         robot_x = pose->x;
         robot_y = pose->y;
         robot_rotation = radians_to_degrees(pose->theta);
-        ROS_INFO("%lf %d", pose->theta, (int)radians_to_degrees(pose->theta));
     }
 
     MapCoordinate cartesian_to_grid(Coordinate position) {

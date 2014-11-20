@@ -190,7 +190,6 @@ public:
         free_between(left_back, left_front);
         
         if(should_render()) {
-            ROS_INFO("Rendering to rviz");
             renderToRviz();
         }
     }
@@ -271,7 +270,6 @@ public:
 
         auto render_sensor = [this, add_marker](Coordinate sensor_position, double r, double g, double b) {
             Coordinate world_position = robot_coord_system_to_world_coord_system(sensor_position);
-            ROS_INFO("world: x: %lf, y: %lf", world_position.x, world_position.y);
             MapCoordinate map_coordinate = cartesian_to_grid(world_position);
             add_marker(map_coordinate, 1.0, r, g, b);
         };
@@ -289,10 +287,7 @@ public:
             double x = h_s * std::cos(theta);
             double y = h_s * std::sin(theta);
 
-            ROS_INFO("sx: %lf sy: %lf, h_s: %lf, theta_s: %lf, theta: %lf, x: %lf, y: %lf", sensor_position.x, sensor_position.y, h_s, theta_s, theta, x, y);
-
             Coordinate position_world_coord_system = robot_coord_system_to_world_coord_system(Coordinate(x, y));
-            ROS_INFO("world: x: %lf, y: %lf", position_world_coord_system.x, position_world_coord_system.y);
 
             add_marker(cartesian_to_grid(position_world_coord_system), 1.0, r, g, b);
         };
@@ -400,12 +395,11 @@ private:
     }
 
     MapCoordinate cartesian_to_grid(Coordinate position) {
-        int map_x = (position.x / resolution) + sign(position.x)*0.99;
-        int map_y = (position.y / resolution) + sign(position.y)*0.99;
+        int map_x = (position.x / resolution) + sign(position.x)*0.5;
+        int map_y = (position.y / resolution) + sign(position.y)*0.5;
         int x = map.row_relative_origo(map_x);
         int y = map.col_relative_origo(map_y);
 
-        ROS_INFO("resolution: %lf, x: %lf, y: %lf, map_x: %d map_y: %d fx: %d fy: %d", resolution, position.x, position.y, map_x, map_y, x, y);
         return MapCoordinate(x, y);
     }
 
@@ -415,8 +409,6 @@ private:
         double y = coordinate.y;
         double xc = prev_robot_x;
         double yc = prev_robot_y;
-
-        ROS_INFO("prev_robot_x: %lf, prev_robot_y: %lf, robot_x: %lf, robot_y: %lf", prev_robot_x, prev_robot_y, robot_x, robot_y);
 
         double xr = (x - xc) * std::cos(theta) - (y - yc) * std::sin(theta) + robot_x;
         double yr = (y - yc) * std::cos(theta) + (x - xc) * std::sin(theta) + robot_y;
@@ -465,6 +457,9 @@ private:
                 ROS_FATAL("WTF");
             }
         }
+
+        result.insert(cartesian_to_grid(Coordinate(p1.x, p1.y)));
+        result.insert(cartesian_to_grid(Coordinate(p2.x, p2.y)));
         
         return result;
     }

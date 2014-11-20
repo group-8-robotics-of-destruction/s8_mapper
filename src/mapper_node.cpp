@@ -122,17 +122,36 @@ public:
 
     void update() {
         auto sensor_reading = [this](Coordinate sensor_position, double reading, int dir) {
-            if(is_valid_ir_value(reading)) {
+            if(is_valid_ir_value(reading) && reading <= 0.2) {
                 Coordinate obstacle_relative_robot_position = Coordinate(sensor_position.x + dir * reading, sensor_position.y);
                 Coordinate obstacle_world_position = robot_coord_system_to_world_coord_system(obstacle_relative_robot_position);
                 MapCoordinate map_position = cartesian_to_grid(obstacle_world_position);
 
                 auto cells = get_cells_touching_line(robot_coord_system_to_world_coord_system(sensor_position), obstacle_world_position);
                 for(auto mc : cells) {
-                    map[mc] = CELL_FREE;
+                    auto & cell = map[mc];
+                    if(cell == CELL_UNKNOWN) {
+                        cell = 50;
+                    } else {
+                        cell -= 5;
+                    }
+
+                    if(cell < 0) {
+                        cell = 0;
+                    }
                 }
 
-                map[map_position] = CELL_OBSTACLE;
+                auto & cell = map[map_position];
+
+                if(cell == CELL_UNKNOWN) {
+                    cell = 50;
+                } else {
+                    cell += 10;
+                }
+
+                if(cell > 100) {
+                    cell = 100;
+                }
             }
         };
 
@@ -163,8 +182,17 @@ public:
         for(size_t i = 0; i < map.num_rows(); i++) {
             for(size_t j = 0; j < map.num_cols(); j++) {
                 auto & cell = grid[j * map.num_rows() + i];
-
-                if(is_point_obstacle(i, j)) {
+                int value = map[i][j];
+                if(value < 0) {
+                    cell = -1;
+                } else if(value > 50) {
+                    cell = 100;
+                } else if(value < 50) {
+                    cell = 0;
+                } else {
+                    cell = -1;
+                }
+                /*if(is_point_obstacle(i, j)) {
                     cell = 100;
                 } else if(is_point_wall(i, j)) {
                     cell = 100;
@@ -176,7 +204,7 @@ public:
                     cell = -1;
                 } else {
                     ROS_WARN("Unknown cell type: %d at (%ld,%ld)", map[i][j], i, j);
-                }
+                }*/
             }
         }
 

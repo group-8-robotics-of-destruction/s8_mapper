@@ -11,7 +11,7 @@ namespace s8 {
         const std::string TOPIC_RENDER =                    "/s8/map/occupancy_grid";
         const std::string TOPIC_ROBOT_POSITION =            "robot_position";
 
-        const int CELL_UNKNOWN =                            1;
+        const int CELL_UNKNOWN =                            -1;
         const int CELL_FREE =                               1 << 2;
         const int CELL_OBSTACLE =                           1 << 3;
         const int CELL_WALL =                               1 << 4 & CELL_OBSTACLE;

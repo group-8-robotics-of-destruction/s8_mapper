@@ -1,6 +1,7 @@
 #ifndef __MAPPER_NODE_H
 #define __MAPPER_NODE_H
 
+#include <s8_mapper/Coordinate.h>
 #include <string>
 
 namespace s8 {
@@ -11,11 +12,33 @@ namespace s8 {
         const std::string TOPIC_RENDER =                    "/s8/map/occupancy_grid";
         const std::string TOPIC_ROBOT_POSITION =            "robot_position";
 
-        const int CELL_UNKNOWN =                            -1;
-        const int CELL_FREE =                               1 << 2;
-        const int CELL_OBSTACLE =                           1 << 3;
-        const int CELL_WALL =                               1 << 4 & CELL_OBSTACLE;
-        const int CELL_OBJECT =                             1 << 5 & CELL_OBSTACLE;
+        struct IRPositions {
+            Coordinate left_back;
+            Coordinate left_front;
+            Coordinate right_back;
+            Coordinate right_front;
+            Coordinate front_right;
+            Coordinate front_left;
+        };
+
+        struct IRReadings {
+            double left_back;
+            double left_front;
+            double right_back;
+            double right_front;
+            double front_right;
+            double front_left;
+
+            IRReadings() : left_back(-1), left_front(-1), right_back(-1), right_front(-1), front_left(-1), front_right(-1) {}
+        };
+
+        struct RobotPose {
+            Coordinate position;
+            int rotation;
+
+            RobotPose() : position(Coordinate()), rotation(0) {}
+            RobotPose(double x, double y, int rotation) : position(Coordinate(x, y)), rotation(rotation) {}
+        };
     }
 }
 

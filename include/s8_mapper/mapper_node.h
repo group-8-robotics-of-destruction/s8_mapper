@@ -11,6 +11,7 @@ namespace s8 {
         const std::string TOPIC_VISUALIZATION_MARKERS =     "/visualization_marker_array";
         const std::string TOPIC_RENDER =                    "/s8/map/occupancy_grid";
         const std::string TOPIC_ROBOT_POSITION =            "robot_position";
+        const std::string SERVICE_PLACE_NODE =              "/s8/map/PlaceNode";
 
         struct IRPositions {
             Coordinate left_back;

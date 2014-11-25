@@ -53,6 +53,10 @@ public:
         }
     }
 
+    void add_node(double x, double y, int value) {
+        add(last, new Node(x, y, value));
+    }
+
     void render(std::vector<visualization_msgs::Marker> & markers) {
         auto add_marker = [&markers, this](int type, double x, double y, float a, float r, float g, float b) {
             visualization_msgs::Marker marker;

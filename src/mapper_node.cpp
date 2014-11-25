@@ -13,6 +13,7 @@
 #include <geometry_msgs/Pose2D.h>
 #include <s8_msgs/IRDistances.h>
 #include <nav_msgs/OccupancyGrid.h>
+#include <s8_mapper/PlaceNode.h>
 
 #define HZ                          10
 #define RENDER_HZ                   10
@@ -73,6 +74,8 @@ class Mapper : public s8::Node {
     IRPositions ir_robot_positions;
     IRReadings ir_readings;
 
+    ros::ServiceServer place_node_service;
+
 public:
     Mapper() : left_back_reading(TRESHOLD_VALUE), left_front_reading(TRESHOLD_VALUE), right_front_reading(TRESHOLD_VALUE), right_back_reading(TRESHOLD_VALUE), render_frame_skips(0), render_frames_to_skip((HZ / RENDER_HZ) - 1), robot_rotation(0), map_state(0), map_state_rendered(-1), robot_x(0.0), robot_y(0.0), prev_robot_x(0.0), prev_robot_y(0.0), robot_pose(0, 0, 0) {
         init_params();
@@ -93,6 +96,8 @@ public:
         ir_sensors_subscriber = nh.subscribe<s8_msgs::IRDistances>(TOPIC_IR_DISTANCES, 1, &Mapper::ir_distances_callback, this);
         pose_subscriber = nh.subscribe<geometry_msgs::Pose2D>(TOPIC_POSE, 1, &Mapper::pose_callback, this);
 
+        place_node_service = nh.advertiseService(SERVICE_PLACE_NODE, &Mapper::place_node_callback, this);
+
         topological = Topological(0, 0);
     }
 
@@ -110,7 +115,7 @@ public:
             occupancy_grid.render();
             render_robot(markerArray.markers);
             topological.render(markerArray.markers);
-            
+
             markers_publisher.publish(markerArray);
         }
     }
@@ -164,6 +169,12 @@ public:
     }
 
 private:
+    bool place_node_callback(s8_mapper::PlaceNode::Request& request, s8_mapper::PlaceNode::Response& response) {
+        ROS_INFO("Placing node %lf %lf", request.x, request.y);
+        topological.add_node(request.x, request.y, request.value);
+        return true;
+    }
+
     void ir_distances_callback(const s8_msgs::IRDistances::ConstPtr & ir_distances) {
         ir_readings.left_back = ir_distances->left_back;
         ir_readings.left_front = ir_distances->left_front;

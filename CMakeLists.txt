@@ -10,6 +10,11 @@ add_service_files(
   PlaceNode.srv
 )
 
+generate_messages(
+  DEPENDENCIES
+  std_msgs
+)
+
 catkin_package(
   DEPENDS
   CATKIN_DEPENDS roscpp s8_common_node s8_ir_sensors s8_pose s8_msgs message_runtime

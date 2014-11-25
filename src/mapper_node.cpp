@@ -4,6 +4,7 @@
 #include <s8_ir_sensors/ir_sensors_node.h>
 #include <s8_pose/pose_node.h>
 #include <s8_mapper/OccupancyGrid.h>
+#include <s8_mapper/Topological.h>
 
 #include <visualization_msgs/MarkerArray.h>
 #include <visualization_msgs/Marker.h>
@@ -11,7 +12,6 @@
 #include <geometry_msgs/Pose2D.h>
 #include <s8_msgs/IRDistances.h>
 #include <nav_msgs/OccupancyGrid.h>
-
 
 #define HZ                          10
 #define RENDER_HZ                   10
@@ -66,6 +66,7 @@ class Mapper : public s8::Node {
     const int render_frames_to_skip;
 
     OccupancyGrid occupancy_grid;
+    Topological topological;
     RobotPose robot_pose;
     IRPositions ir_world_positions;
     IRPositions ir_robot_positions;
@@ -91,11 +92,10 @@ public:
         ir_sensors_subscriber = nh.subscribe<s8_msgs::IRDistances>(TOPIC_IR_DISTANCES, 1, &Mapper::ir_distances_callback, this);
         pose_subscriber = nh.subscribe<geometry_msgs::Pose2D>(TOPIC_POSE, 1, &Mapper::pose_callback, this);
 
-        //robot_pose.position.y = 0.1;
+        topological = Topological(0, 0, markers_publisher);
     }
 
     void update() {
-        ROS_INFO(to_string(ir_robot_positions.left_front).c_str());
         ir_world_positions.left_front = occupancy_grid.robot_coord_system_to_world_coord_system(ir_robot_positions.left_front);
         ir_world_positions.left_back = occupancy_grid.robot_coord_system_to_world_coord_system(ir_robot_positions.left_back);
         ir_world_positions.right_front = occupancy_grid.robot_coord_system_to_world_coord_system(ir_robot_positions.right_front);
@@ -104,8 +104,9 @@ public:
         occupancy_grid.update(ir_readings, ir_world_positions, robot_pose);
 
         if(should_render()) {
-            occupancy_grid.render();
-            render_to_rviz();
+            //occupancy_grid.render();
+            //render_to_rviz();
+            topological.render();
         }
     }
 

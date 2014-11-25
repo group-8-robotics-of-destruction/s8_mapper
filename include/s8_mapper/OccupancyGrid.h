@@ -52,8 +52,6 @@ public:
         prev_robot_pose = robot_pose;
         robot_pose = new_robot_pose;
 
-        ROS_INFO("Old pose: (%lf %lf %d) New Pose: (%lf %lf %d)", prev_robot_pose.position.x, prev_robot_pose.position.y, prev_robot_pose.rotation, robot_pose.position.x, robot_pose.position.y, robot_pose.rotation);
-
         auto free_cell = [](int & cell) {
             if(cell == CELL_UNKNOWN) {
                 cell = 50;
@@ -79,7 +77,6 @@ public:
         };
 
         auto sensor_reading = [this, obstacle_cell, free_cell](Coordinate sensor_position, double reading, int dir) {
-            ROS_INFO("%lf", reading);
             if(is_valid_ir_value(reading) && reading <= 0.2) {
                 Coordinate obstacle_robot_position = Coordinate(sensor_position.x + dir * reading, sensor_position.y);
                 Coordinate obstacle_world_position = robot_coord_system_to_world_coord_system(obstacle_robot_position);

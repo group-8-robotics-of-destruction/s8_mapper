@@ -3,6 +3,7 @@
 
 #include <visualization_msgs/MarkerArray.h>
 #include <visualization_msgs/Marker.h>
+#include <vector>
 
 #define TOPO_NODE_FREE      1 << 1
 #define TOPO_NODE_WALL      1 << 2
@@ -31,14 +32,13 @@ private:
     Node *root;
     Node *last;
     std::vector<Node*> nodes;
-    ros::Publisher markers_publisher;
 
 public:
     Topological() {
         init(0, 0);
     }
 
-    Topological(double x, double y, ros::Publisher markers_publisher) : markers_publisher(markers_publisher) {
+    Topological(double x, double y) {
         init(x, y);
 
         //TODO remove below
@@ -53,11 +53,7 @@ public:
         }
     }
 
-    void render() {
-        visualization_msgs::MarkerArray markerArray;
-        markerArray.markers = std::vector<visualization_msgs::Marker>();
-        auto & markers = markerArray.markers;
-
+    void render(std::vector<visualization_msgs::Marker> & markers) {
         auto add_marker = [&markers, this](int type, double x, double y, float a, float r, float g, float b) {
             visualization_msgs::Marker marker;
 
@@ -118,8 +114,6 @@ public:
 
             markers.push_back(marker);
         });
-
-        markers_publisher.publish(markerArray);
     }
 
 private:

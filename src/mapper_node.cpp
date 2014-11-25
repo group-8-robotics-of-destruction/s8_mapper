@@ -5,6 +5,7 @@
 #include <s8_pose/pose_node.h>
 #include <s8_mapper/OccupancyGrid.h>
 #include <s8_mapper/Topological.h>
+#include <vector>
 
 #include <visualization_msgs/MarkerArray.h>
 #include <visualization_msgs/Marker.h>
@@ -92,7 +93,7 @@ public:
         ir_sensors_subscriber = nh.subscribe<s8_msgs::IRDistances>(TOPIC_IR_DISTANCES, 1, &Mapper::ir_distances_callback, this);
         pose_subscriber = nh.subscribe<geometry_msgs::Pose2D>(TOPIC_POSE, 1, &Mapper::pose_callback, this);
 
-        topological = Topological(0, 0, markers_publisher);
+        topological = Topological(0, 0);
     }
 
     void update() {
@@ -104,17 +105,17 @@ public:
         occupancy_grid.update(ir_readings, ir_world_positions, robot_pose);
 
         if(should_render()) {
-            //occupancy_grid.render();
-            //render_to_rviz();
-            topological.render();
+            visualization_msgs::MarkerArray markerArray;
+
+            occupancy_grid.render();
+            render_robot(markerArray.markers);
+            topological.render(markerArray.markers);
+            
+            markers_publisher.publish(markerArray);
         }
     }
 
-    void render_to_rviz() {
-        visualization_msgs::MarkerArray markerArray;
-        markerArray.markers = std::vector<visualization_msgs::Marker>();
-        auto & markers = markerArray.markers;
-
+    void render_robot(std::vector<visualization_msgs::Marker> & markers) {
         auto add_marker = [&markers, this](MapCoordinate coordinate, float a, float r, float g, float b) {
             visualization_msgs::Marker marker;
 
@@ -139,7 +140,7 @@ public:
             marker.color.g = g;
             marker.color.b = b;
 
-            markers.push_back(marker);
+            markers.push_back(marker);    
         };
 
         auto render_sensor = [this, add_marker](Coordinate sensor_world_position, double r, double g, double b) {
@@ -160,8 +161,6 @@ public:
         render_sensor(ir_world_positions.right_front, 0, 1, 0);
 
         render_robot(0, 0, 0);
-
-        markers_publisher.publish(markerArray);
     }
 
 private:

@@ -32,6 +32,11 @@
 #define TOPIC_IR_DISTANCES          s8::ir_sensors_node::TOPIC_IR_DISTANCES
 #define TOPIC_POSE                  s8::pose_node::TOPIC_POSE_SIMPLE
 #define TRESHOLD_VALUE              s8::ir_sensors_node::TRESHOLD_VALUE
+                
+#define HEADING_NORTH               1
+#define HEADING_WEST                2
+#define HEADING_SOUTH               3
+#define HEADING_EAST                4
 
 using namespace s8::mapper_node;
 using namespace s8::map;
@@ -77,7 +82,7 @@ class Mapper : public s8::Node {
     ros::ServiceServer place_node_service;
 
 public:
-    Mapper() : left_back_reading(TRESHOLD_VALUE), left_front_reading(TRESHOLD_VALUE), right_front_reading(TRESHOLD_VALUE), right_back_reading(TRESHOLD_VALUE), render_frame_skips(0), render_frames_to_skip((HZ / RENDER_HZ) - 1), robot_rotation(0), map_state(0), map_state_rendered(-1), robot_x(0.0), robot_y(0.0), prev_robot_x(0.0), prev_robot_y(0.0), robot_pose(0, 0, 0) {
+    Mapper() : left_back_reading(TRESHOLD_VALUE), left_front_reading(TRESHOLD_VALUE), right_front_reading(TRESHOLD_VALUE), right_back_reading(TRESHOLD_VALUE), render_frame_skips(0), render_frames_to_skip((HZ / RENDER_HZ) - 1), robot_rotation(0), map_state(0), map_state_rendered(-1), robot_x(0.0), robot_y(0.0), prev_robot_x(0.0), prev_robot_y(0.0), robot_pose(0, 0, -90) {
         init_params();
         print_params();
 
@@ -158,7 +163,7 @@ public:
             add_marker(mc, 1.0, r, g, b);
         };
 
-        ROS_INFO("left_front: %s", to_string(ir_world_positions.left_front).c_str());
+//        ROS_INFO("left_front: %s", to_string(ir_world_positions.left_front).c_str());
 
         render_sensor(ir_world_positions.left_front, 1, 1, 0);
         render_sensor(ir_world_positions.left_back, 1, 0, 1);
@@ -171,7 +176,15 @@ public:
 private:
     bool place_node_callback(s8_mapper::PlaceNode::Request& request, s8_mapper::PlaceNode::Response& response) {
         ROS_INFO("Placing node %lf %lf", request.x, request.y);
-        topological.add_node(request.x, request.y, request.value);
+
+        int current_heading = get_current_heading();
+        ROS_INFO("CUrrent Heading: %d", current_heading );
+        bool isWallNorth = is_wall_north(current_heading, request.isWallLeft, request.isWallForward, request.isWallRight);
+        bool isWallWest = is_wall_west(current_heading, request.isWallLeft, request.isWallForward, request.isWallRight);
+        bool isWallSouth = is_wall_south(current_heading, request.isWallLeft, request.isWallForward, request.isWallRight);
+        bool isWallEast = is_wall_east(current_heading, request.isWallLeft, request.isWallForward, request.isWallRight);
+
+        topological.add_node(request.x+robot_pose.position.x, request.y+robot_pose.position.y, request.value, isWallNorth, isWallWest,isWallSouth,isWallEast);
         return true;
     }
 
@@ -188,6 +201,70 @@ private:
         robot_pose.position.x = pose->x;
         robot_pose.position.y = pose->y;
         robot_pose.rotation = radians_to_degrees(pose->theta);
+        if (robot_pose.rotation > 360){
+            int toRange = floor(robot_pose.rotation/360);
+            robot_pose.rotation = robot_pose.rotation - toRange*360; 
+        }
+        else if (robot_pose.rotation < 0){
+            int toRange = ceil(robot_pose.rotation/360);
+            robot_pose.rotation = robot_pose.rotation + (toRange+1)*360;    
+        }
+    }
+
+    int get_current_heading(){
+        ROS_INFO("REAL HEADING: %lf", robot_pose.rotation);
+        if (robot_pose.rotation >= 315 || robot_pose.rotation < 45){
+            ROS_INFO("HEADING EAST");
+            return HEADING_EAST;
+        }
+        else if (robot_pose.rotation >= 45 && robot_pose.rotation < 135){
+            ROS_INFO("HEADING NORTH");
+            return HEADING_NORTH;
+        }
+        else if (robot_pose.rotation >= 135 && robot_pose.rotation < 225){
+            ROS_INFO("HEADING WEST");
+            return HEADING_WEST;
+        }
+        else{
+            ROS_INFO("HEADING SOUTH");
+            return HEADING_SOUTH;
+        }
+    }
+
+    bool is_wall_north(int heading, bool isWallLeft, bool isWallForward, bool isWallRight){
+        if ( (heading == HEADING_NORTH && isWallForward == true) || (heading == HEADING_WEST && isWallRight == true) || (heading == HEADING_EAST && isWallLeft == true) ){
+            return true;
+        }
+        else{
+            return false;
+        }
+    }
+
+    bool is_wall_west(int heading, bool isWallLeft, bool isWallForward, bool isWallRight){
+        if ( (heading == HEADING_WEST && isWallForward==true) || (heading == HEADING_SOUTH && isWallRight==true) || (heading == HEADING_NORTH && isWallLeft==true) ){
+            return true;
+        }
+        else{
+            return false;
+        }
+    }
+
+    bool is_wall_south(int heading, bool isWallLeft, bool isWallForward, bool isWallRight){
+        if ( (heading == HEADING_SOUTH && isWallForward==true) || (heading == HEADING_EAST && isWallRight==true) || (heading == HEADING_WEST && isWallLeft==true) ){
+            return true;
+        }
+        else{
+            return false;
+        }
+    }
+
+    bool is_wall_east(int heading, bool isWallLeft, bool isWallForward, bool isWallRight){
+        if ( (heading == HEADING_EAST && isWallForward==true) || (heading == HEADING_NORTH && isWallRight==true) || (heading == HEADING_SOUTH && isWallLeft==true) ){
+            return true;
+        }
+        else{
+            return false;
+        }
     }
 
     bool should_render() {

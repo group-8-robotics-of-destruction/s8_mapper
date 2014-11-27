@@ -1,5 +1,8 @@
 float32 x
 float32 y
 int32 value
+bool isWallLeft
+bool isWallForward
+bool isWallRight
 ---
 bool placed

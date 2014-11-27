@@ -42,15 +42,19 @@ public:
         init(x, y);
 
         //TODO remove below
-        add_node(0, 0.1, TOPO_NODE_WALL);
-        add_node(0, -0.1, TOPO_NODE_WALL);
-        add_node(-0.2, 0, TOPO_NODE_WALL);
+        
+        add_node(0, 0.2, TOPO_NODE_WALL, false, false, false, false);
+        add_node(0, -0.2, TOPO_NODE_WALL, false, false, false, false);
+        add_node(-0.2, 0, TOPO_NODE_WALL, false, false, false, false);
+        
+        /*
         add_node(0.5, 0, TOPO_NODE_FREE);
         add_node(0.6, 0, TOPO_NODE_WALL);
         add_node(0.5, -0.1, TOPO_NODE_WALL);
         add_node(0.7, 0.5, TOPO_NODE_FREE);
         add_node(0.8, 0.5, TOPO_NODE_WALL);
         add_node(0.7, 0.6, TOPO_NODE_OBJECT);
+        */
     }
 
     ~Topological() {
@@ -59,13 +63,30 @@ public:
         }
     }
 
-    void add_node(double x, double y, int value) {
+    void add_node(double x, double y, int value, bool isWallNorth, bool isWallWest, bool isWallSouth, bool isWallEast) {
         Node* tmp = new Node(x, y, value);
         add(last, tmp);
-        ROS_INFO("value: %d", value);
+
         if (value == TOPO_NODE_FREE){
             last = tmp; 
             ROS_INFO("Changing current node to last node");
+
+            if (isWallNorth == true){
+                add_node(x, y+0.2, TOPO_NODE_WALL, false,false,false,false);
+                ROS_INFO("NODE North");
+            }
+            if (isWallWest == true){
+                add_node(x-0.2, y, TOPO_NODE_WALL, false,false,false,false);
+                ROS_INFO("NODE West");
+            }
+            if (isWallSouth == true){
+                add_node(x, y-0.2, TOPO_NODE_WALL, false,false,false,false);
+                ROS_INFO("NODE South");
+            }
+            if (isWallEast == true){
+                add_node(x+0.2, y, TOPO_NODE_WALL, false,false,false,false);
+                ROS_INFO("NODE East");
+            }
         }
     }
 
@@ -86,9 +107,9 @@ public:
             marker.pose.orientation.y = 0;
             marker.pose.orientation.z = 0;
             marker.pose.orientation.w = 0;
-            marker.scale.x = 0.02;
-            marker.scale.y = 0.02;
-            marker.scale.z = 0.02;
+            marker.scale.x = 0.06;
+            marker.scale.y = 0.06;
+            marker.scale.z = 0.06;
             marker.color.a = a;
             marker.color.r = r;
             marker.color.g = g;
@@ -101,7 +122,7 @@ public:
             if(is_wall(n)) {
                 add_marker(visualization_msgs::Marker::SPHERE, n->x, n->y, 1, 1, 0, 0);
             } else if(is_free(n)){
-                add_marker(visualization_msgs::Marker::SPHERE, n->x, n->y, 1, 0, 1, 0);
+                add_marker(visualization_msgs::Marker::SPHERE, n->x, n->y, 1, 1, 0.5, 0);
             } else {
                 add_marker(visualization_msgs::Marker::SPHERE, n->x, n->y, 1, 0, 0, 1);
             }
@@ -184,21 +205,21 @@ private:
             if(to->y > from->y) {
                 from->north = to;
                 to->south = from;
-                ROS_INFO("North - South");
+                //ROS_INFO("North - South");
             } else {
                 from->south = to;
                 to->north = from;
-                ROS_INFO("South - North");
+                //ROS_INFO("South - North");
             }
         } else {
             if(to->x > from->x) {
                 from->east = to;
                 to->west = from;
-                ROS_INFO("East - West");
+                //ROS_INFO("East - West");
             } else {
                 from->west = to;
                 to->east = from;
-                ROS_INFO("West - East");
+                //ROS_INFO("West - East");
             }
         }
     }

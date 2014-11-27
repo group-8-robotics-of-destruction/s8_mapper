@@ -35,9 +35,9 @@ namespace s8 {
 
         struct RobotPose {
             Coordinate position;
-            int rotation;
+            double rotation;
 
-            RobotPose() : position(Coordinate()), rotation(0) {}
+            RobotPose() : position(Coordinate()), rotation(-90) {}
             RobotPose(double x, double y, int rotation) : position(Coordinate(x, y)), rotation(rotation) {}
         };
     }

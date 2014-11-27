@@ -42,9 +42,15 @@ public:
         init(x, y);
 
         //TODO remove below
-        add(root, new Node(0, 0.1, TOPO_NODE_WALL));
-        add(root, new Node(0, -0.1, TOPO_NODE_WALL));
-        add(root, new Node(-0.2, 0, TOPO_NODE_WALL));
+        add_node(0, 0.1, TOPO_NODE_WALL);
+        add_node(0, -0.1, TOPO_NODE_WALL);
+        add_node(-0.2, 0, TOPO_NODE_WALL);
+        add_node(0.5, 0, TOPO_NODE_FREE);
+        add_node(0.6, 0, TOPO_NODE_WALL);
+        add_node(0.5, -0.1, TOPO_NODE_WALL);
+        add_node(0.7, 0.5, TOPO_NODE_FREE);
+        add_node(0.8, 0.5, TOPO_NODE_WALL);
+        add_node(0.7, 0.6, TOPO_NODE_OBJECT);
     }
 
     ~Topological() {
@@ -54,7 +60,13 @@ public:
     }
 
     void add_node(double x, double y, int value) {
-        add(last, new Node(x, y, value));
+        Node* tmp = new Node(x, y, value);
+        add(last, tmp);
+        ROS_INFO("value: %d", value);
+        if (value == TOPO_NODE_FREE){
+            last = tmp; 
+            ROS_INFO("Changing current node to last node");
+        }
     }
 
     void render(std::vector<visualization_msgs::Marker> & markers) {
@@ -88,8 +100,10 @@ public:
         for(Node *n : nodes) {
             if(is_wall(n)) {
                 add_marker(visualization_msgs::Marker::SPHERE, n->x, n->y, 1, 1, 0, 0);
-            } else {
+            } else if(is_free(n)){
                 add_marker(visualization_msgs::Marker::SPHERE, n->x, n->y, 1, 0, 1, 0);
+            } else {
+                add_marker(visualization_msgs::Marker::SPHERE, n->x, n->y, 1, 0, 0, 1);
             }
         }
 
@@ -166,27 +180,34 @@ private:
     void link(Node *from, Node *to) {
         //TODO Make this better
         double treshold = 0.2;
-        if(std::abs(from->x - to->x) < treshold) {
+        if(std::abs(from->x - to->x) < std::abs(from->y - to->y)) {
             if(to->y > from->y) {
                 from->north = to;
                 to->south = from;
+                ROS_INFO("North - South");
             } else {
                 from->south = to;
                 to->north = from;
+                ROS_INFO("South - North");
             }
         } else {
             if(to->x > from->x) {
                 from->east = to;
                 to->west = from;
+                ROS_INFO("East - West");
             } else {
                 from->west = to;
                 to->east = from;
+                ROS_INFO("West - East");
             }
         }
     }
 
     bool is_wall(Node *node) {
         return (node->value & TOPO_NODE_WALL) == TOPO_NODE_WALL;
+    }
+    bool is_free(Node *node) {
+        return (node->value & TOPO_NODE_FREE) == TOPO_NODE_FREE;
     }
 };
 

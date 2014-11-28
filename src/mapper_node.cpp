@@ -178,13 +178,16 @@ private:
         ROS_INFO("Placing node %lf %lf", request.x, request.y);
 
         int current_heading = get_current_heading();
-        ROS_INFO("CUrrent Heading: %d", current_heading );
+        ROS_INFO("Current Heading: %d", current_heading );
         bool isWallNorth = is_wall_north(current_heading, request.isWallLeft, request.isWallForward, request.isWallRight);
         bool isWallWest = is_wall_west(current_heading, request.isWallLeft, request.isWallForward, request.isWallRight);
         bool isWallSouth = is_wall_south(current_heading, request.isWallLeft, request.isWallForward, request.isWallRight);
         bool isWallEast = is_wall_east(current_heading, request.isWallLeft, request.isWallForward, request.isWallRight);
 
-        topological.add_node(request.x+robot_pose.position.x, request.y+robot_pose.position.y, request.value, isWallNorth, isWallWest,isWallSouth,isWallEast);
+        // check to see if node exists, if the node exists do not create new note, set existing node as last.
+        if (!topological.does_node_exist(request.x+robot_pose.position.x, request.y+robot_pose.position.y, request.value, isWallNorth, isWallWest,isWallSouth,isWallEast)){
+            topological.add_node(request.x+robot_pose.position.x, request.y+robot_pose.position.y, request.value, isWallNorth, isWallWest,isWallSouth,isWallEast);
+        }
         return true;
     }
 
@@ -201,6 +204,8 @@ private:
         robot_pose.position.x = pose->x;
         robot_pose.position.y = pose->y;
         robot_pose.rotation = radians_to_degrees(pose->theta);
+        
+        // Make sure that rotation stays in the range [0, 360]
         if (robot_pose.rotation > 360){
             int toRange = floor(robot_pose.rotation/360);
             robot_pose.rotation = robot_pose.rotation - toRange*360; 

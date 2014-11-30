@@ -8,6 +8,7 @@
 #define TOPO_NODE_FREE      1 << 1
 #define TOPO_NODE_WALL      1 << 2
 #define TOPO_NODE_OBJECT    1 << 3
+#define TOPO_NODE_CURRENT   1 << 4
 
 class Topological {
 public:
@@ -31,7 +32,6 @@ public:
 private:
     Node *root;
     Node *last;
-    Node *tmp;
     std::vector<Node*> nodes;
 
 public:
@@ -50,28 +50,30 @@ public:
         add_node(-0.2, 0, TOPO_NODE_WALL, false, false, false, false);
         
         // Add map nodes
-        if (!does_node_exist(2.0, 0, TOPO_NODE_FREE, false, false, true, true))
-            add_node(2.0, 0, TOPO_NODE_FREE, false, false, true, true);
-        if (!does_node_exist(1.8, 0.5, TOPO_NODE_FREE, false, false, false, false))
-            add_node(1.8, 0.5, TOPO_NODE_FREE, false, true, false, false);
-        if (!does_node_exist(2.0, 1.0, TOPO_NODE_FREE, false, false, false, true))
-            add_node(2.0, 1.0, TOPO_NODE_FREE, false, false, false, true);
-        if (!does_node_exist(2.0, 2.0, TOPO_NODE_FREE, true, false, false, true));
-            add_node(2.0, 2.0, TOPO_NODE_FREE, true, false, false, true);
-        if (!does_node_exist(1.0, 2.0, TOPO_NODE_FREE, true, true, false, false))
-            add_node(1.0, 2.0, TOPO_NODE_FREE, true, true, false, false);
-        if (!does_node_exist(1.0, 1.0, TOPO_NODE_FREE, false, true, true, false))
-            add_node(1.0, 1.0, TOPO_NODE_FREE, false, true, true, false);
-        if (!does_node_exist(2.05, 1.05, TOPO_NODE_FREE, false, false, false, true)){
-            add_node(2.3, 1.05, TOPO_NODE_FREE, false, false, false, true);
-        //link(last, tmp);
-        //set_as_last_node(tmp);
-            //render();
-        }
-        /*
-        if (!does_node_exist(1.5, 1.0, TOPO_NODE_FREE, false, false, false, true))
-            add_node(1.5, 1.0, TOPO_NODE_FREE, true, false, false, false);
-        */
+        add_node(2.0, 0, TOPO_NODE_FREE, false, false, true, true);
+        add_node(2.0, 0.5, TOPO_NODE_FREE, true, false, false, true);
+        add_node(1.5, 0.5, TOPO_NODE_FREE, false, true, true, false);
+        add_node(1.5, 1.0, TOPO_NODE_FREE, true, true, false, false);
+        add_node(2.0, 1.0, TOPO_NODE_FREE, false, false, true, true);
+        add_node(2.0, 1.5, TOPO_NODE_FREE, true, false, false, true);
+        add_node(1.5, 1.5, TOPO_NODE_FREE, false, true, true, false);
+        add_node(1.5, 2.3, TOPO_NODE_FREE, true, false, false, false);
+        add_node(2.0, 2.3, TOPO_NODE_FREE, true, false, false, true);
+        add_node(2.0, 2.0, TOPO_NODE_FREE, false, false, true, true);
+        add_node(1.6, 2.0, TOPO_NODE_FREE, false, true, false, false);
+        add_node(1.6, 2.3, TOPO_NODE_FREE, true, false, false, false);
+        add_node(1.1, 2.3, TOPO_NODE_FREE, true, true, false, false);
+        add_node(1.1, 2.1, TOPO_NODE_FREE, false, false, true, true);
+        add_node(0.0, 2.1, TOPO_NODE_FREE, false, true, false, false);
+        add_node(0.0, 0.4, TOPO_NODE_FREE, false, true, true, false);
+        add_node(0.5, 0.4, TOPO_NODE_FREE, false, false, true, true);
+        add_node(0.5, 0.9, TOPO_NODE_FREE, true, true, false, true);
+
+        // Go back
+        add_node(0.5, 0.5, TOPO_NODE_FREE, false, false, true, true);
+        add_node(0.14, 0.4, TOPO_NODE_FREE, false, true, true, false);
+        add_node(0.06, 2.3, TOPO_NODE_FREE, true, true, false, false);
+        add_node(0.17, 2.3, TOPO_NODE_FREE, true, false, false, true);
     }
 
     ~Topological() {
@@ -81,29 +83,19 @@ public:
     }
 
     void add_node(double x, double y, int value, bool isWallNorth, bool isWallWest, bool isWallSouth, bool isWallEast) {
-        Node* tmp = new Node(x, y, value);
-        add(last, tmp);
+        if (value == TOPO_NODE_FREE || value == TOPO_NODE_CURRENT){
+            if (!does_node_exist(x, y, TOPO_NODE_FREE, isWallNorth, isWallWest, isWallSouth, isWallEast)){
+                Node* tmp = new Node(x, y, value);
+                add(last, tmp);
 
-        if (value == TOPO_NODE_FREE){
-            last = tmp; 
-            ROS_INFO("Changing current node to last node");
-
-            if (isWallNorth == true){
-                add_node(x, y+0.2, TOPO_NODE_WALL, false,false,false,false);
-                ROS_INFO("NODE North");
+                set_as_last_node(tmp);
+                ROS_INFO("Changing current node to last node");
+                add_walls(x, y, isWallNorth, isWallWest, isWallSouth, isWallEast);
             }
-            if (isWallWest == true){
-                add_node(x-0.2, y, TOPO_NODE_WALL, false,false,false,false);
-                ROS_INFO("NODE West");
-            }
-            if (isWallSouth == true){
-                add_node(x, y-0.2, TOPO_NODE_WALL, false,false,false,false);
-                ROS_INFO("NODE South");
-            }
-            if (isWallEast == true){
-                add_node(x+0.2, y, TOPO_NODE_WALL, false,false,false,false);
-                ROS_INFO("NODE East");
-            }
+        }
+        else{
+            Node* tmp = new Node(x, y, value);
+            add(last, tmp);            
         }
     }
 
@@ -140,8 +132,10 @@ public:
                 add_marker(visualization_msgs::Marker::SPHERE, n->x, n->y, 1, 1, 0, 0);
             } else if(is_free(n)){
                 add_marker(visualization_msgs::Marker::SPHERE, n->x, n->y, 1, 1, 0.5, 0);
-            } else {
+            } else if(is_object(n)){
                 add_marker(visualization_msgs::Marker::SPHERE, n->x, n->y, 1, 0, 0, 1);
+            } else {
+                add_marker(visualization_msgs::Marker::SPHERE, n->x, n->y, 1, 0, 1, 1);
             }
         }
 
@@ -165,6 +159,8 @@ public:
                 marker.points.push_back(point);
             };
 
+
+
             add_point(from);
             add_point(to);
 
@@ -176,19 +172,22 @@ public:
         std::vector<Node*>::iterator nodeIte;
         int j = 0;
         for (nodeIte = nodes.begin(); nodeIte != nodes.end(); nodeIte++){
+            // loop through old vector and load into new vector.
             // Check for type and position.
-            //double x_tmp = (*nodeIte)->x;
-            ROS_INFO("hahah");
             if (nodes[j]->value == value && std::abs(nodes[j]->x - x) < 0.15 && std::abs(nodes[j]->y - y) < 0.15){
                 // Check for properties
-                if ( check_properties(isWallNorth, (*nodeIte)->north) && check_properties(isWallWest, (*nodeIte)->west) && check_properties(isWallSouth, (*nodeIte)->south) && check_properties(isWallEast, (*nodeIte)->east)){
-                    // TODO do it properly.
+                if ( check_properties(isWallNorth, (*nodeIte)->north) && check_properties(isWallWest, (*nodeIte)->west) && check_properties(isWallSouth, (*nodeIte)->south) && check_properties(isWallEast, (*nodeIte)->east)){                    
+                    
+                    // TODO: link last and (*nodeIte).
+                    // Think that the problem lies in the traverse rather than the linking.
+
+                    set_as_last_node(*nodeIte);
+                    return true;
                 }
             }
             j++;
         }
         return false; 
-
     }
 
 private:
@@ -236,21 +235,19 @@ private:
     }
 
     void set_as_last_node(Node* new_last_node){
+        last->value = TOPO_NODE_FREE;
+        new_last_node->value = TOPO_NODE_CURRENT;
         last = new_last_node;
-    }
-    void set_as_tmp_node(Node* new_tmp_node){
-        tmp = new_tmp_node;
     }
 
     bool check_properties(bool property, Node* node){
         if (node == NULL){
-            ROS_INFO("NULL");
             return true;
         } else if (property == true && node->value == TOPO_NODE_WALL) {
-            ROS_INFO("TRUE");
             return true;
         } else if (property == false && node->value == TOPO_NODE_FREE) {
-            ROS_INFO("FALSE");
+            return true;
+        } else if (property == false && node->value == TOPO_NODE_CURRENT) {
             return true;
         }
         return false;
@@ -258,9 +255,7 @@ private:
 
     void link(Node *from, Node *to) {
         //TODO Make this better
-        ROS_INFO("I'm In");
         if(std::abs(from->x - to->x) < std::abs(from->y - to->y)) {
-            ROS_INFO("X less than Y");
             if(to->y > from->y) {
                 from->north = to;
                 to->south = from;
@@ -271,19 +266,30 @@ private:
                 //ROS_INFO("South - North");
             }
         } else {
-            ROS_INFO("Y less than X");
             if(to->x > from->x) {
-                ROS_INFO("to bigger than from");
                 from->east = to;
-                ROS_INFO("Almost at the end");
                 to->west = from;
                 //ROS_INFO("East - West");
             } else {
-                ROS_INFO("from bigger than to");
                 from->west = to;
                 to->east = from;
                 //ROS_INFO("West - East");
             }
+        }
+    }
+
+    void add_walls(double x, double y, bool isWallNorth, bool isWallWest, bool isWallSouth, bool isWallEast){
+        if (isWallNorth == true){
+            add_node(x, y+0.2, TOPO_NODE_WALL, false,false,false,false);
+        }
+        if (isWallWest == true){
+            add_node(x-0.2, y, TOPO_NODE_WALL, false,false,false,false);
+        }
+        if (isWallSouth == true){
+            add_node(x, y-0.2, TOPO_NODE_WALL, false,false,false,false);
+        }
+        if (isWallEast == true){
+            add_node(x+0.2, y, TOPO_NODE_WALL, false,false,false,false);
         }
     }
 
@@ -292,6 +298,17 @@ private:
     }
     bool is_free(Node *node) {
         return (node->value & TOPO_NODE_FREE) == TOPO_NODE_FREE;
+    }
+    bool is_object(Node *node) {
+        return (node->value & TOPO_NODE_OBJECT) == TOPO_NODE_OBJECT;
+    }
+    bool is_wall_node(Node* node){
+        if (node == NULL)
+            return false;
+        else if (node->value == TOPO_NODE_WALL)
+            return true;
+        else 
+            return false;
     }
 };
 

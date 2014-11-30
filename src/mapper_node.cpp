@@ -184,10 +184,7 @@ private:
         bool isWallSouth = is_wall_south(current_heading, request.isWallLeft, request.isWallForward, request.isWallRight);
         bool isWallEast = is_wall_east(current_heading, request.isWallLeft, request.isWallForward, request.isWallRight);
 
-        // check to see if node exists, if the node exists do not create new note, set existing node as last.
-        if (!topological.does_node_exist(request.x+robot_pose.position.x, request.y+robot_pose.position.y, request.value, isWallNorth, isWallWest,isWallSouth,isWallEast)){
-            topological.add_node(request.x+robot_pose.position.x, request.y+robot_pose.position.y, request.value, isWallNorth, isWallWest,isWallSouth,isWallEast);
-        }
+        topological.add_node(request.x+robot_pose.position.x, request.y+robot_pose.position.y, request.value, isWallNorth, isWallWest,isWallSouth,isWallEast);
         return true;
     }
 

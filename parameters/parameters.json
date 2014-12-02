@@ -1,0 +1,5 @@
+// Configuration options
+{
+    // TOPOLOGICAL
+    "same_nodes_max_dist"       : "0.20"
+}

@@ -5,6 +5,13 @@
 #include <visualization_msgs/Marker.h>
 #include <vector>
 
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/json_parser.hpp>
+#include <boost/foreach.hpp>
+#include <cstdlib>
+
+const std::string CONFIG_DOC =  "/catkin_ws/src/s8_mapper/parameters/parameters.json";
+
 #define TOPO_NODE_FREE      1 << 1
 #define TOPO_NODE_WALL      1 << 2
 #define TOPO_NODE_OBJECT    1 << 3
@@ -33,6 +40,7 @@ private:
     Node *root;
     Node *last;
     std::vector<Node*> nodes;
+    double same_nodes_max_dist;
 
 public:
     Topological() {
@@ -40,6 +48,8 @@ public:
     }
 
     Topological(double x, double y) {
+        add_params();
+
         init(x, y);
 
         //TODO remove below
@@ -48,32 +58,35 @@ public:
         add_node(0, 0.2, TOPO_NODE_WALL, false, false, false, false);
         add_node(0, -0.2, TOPO_NODE_WALL, false, false, false, false);
         add_node(-0.2, 0, TOPO_NODE_WALL, false, false, false, false);
-        
-        // Add map nodes
-        add_node(2.0, 0, TOPO_NODE_FREE, false, false, true, true);
-        add_node(2.0, 0.5, TOPO_NODE_FREE, true, false, false, true);
-        add_node(1.5, 0.5, TOPO_NODE_FREE, false, true, true, false);
-        add_node(1.5, 1.0, TOPO_NODE_FREE, true, true, false, false);
-        add_node(2.0, 1.0, TOPO_NODE_FREE, false, false, true, true);
-        add_node(2.0, 1.5, TOPO_NODE_FREE, true, false, false, true);
-        add_node(1.5, 1.5, TOPO_NODE_FREE, false, true, true, false);
-        add_node(1.5, 2.3, TOPO_NODE_FREE, true, false, false, false);
-        add_node(2.0, 2.3, TOPO_NODE_FREE, true, false, false, true);
-        add_node(2.0, 2.0, TOPO_NODE_FREE, false, false, true, true);
-        add_node(1.6, 2.0, TOPO_NODE_FREE, false, true, false, false);
-        add_node(1.6, 2.3, TOPO_NODE_FREE, true, false, false, false);
-        add_node(1.1, 2.3, TOPO_NODE_FREE, true, true, false, false);
-        add_node(1.1, 2.1, TOPO_NODE_FREE, false, false, true, true);
-        add_node(0.0, 2.1, TOPO_NODE_FREE, false, true, false, false);
-        add_node(0.0, 0.4, TOPO_NODE_FREE, false, true, true, false);
-        add_node(0.5, 0.4, TOPO_NODE_FREE, false, false, true, true);
-        add_node(0.5, 0.9, TOPO_NODE_FREE, true, true, false, true);
 
-        // Go back
-        add_node(0.5, 0.5, TOPO_NODE_FREE, false, false, true, true);
-        add_node(0.14, 0.4, TOPO_NODE_FREE, false, true, true, false);
-        add_node(0.06, 2.3, TOPO_NODE_FREE, true, true, false, false);
-        add_node(0.17, 2.3, TOPO_NODE_FREE, true, false, false, true);
+
+        // Add map nodes
+        
+        // add_node(2.0, 0, TOPO_NODE_FREE, false, false, true, true);
+        // add_node(2.0, 0.5, TOPO_NODE_FREE, true, false, false, true);
+        // add_node(1.5, 0.5, TOPO_NODE_FREE, false, true, true, false);
+        // add_node(1.5, 1.0, TOPO_NODE_FREE, true, true, false, false);
+        // add_node(2.0, 1.0, TOPO_NODE_FREE, false, false, true, true);
+        // add_node(2.0, 1.5, TOPO_NODE_FREE, true, false, false, true);
+        // add_node(1.5, 1.5, TOPO_NODE_FREE, false, true, true, false);
+        // add_node(1.5, 2.3, TOPO_NODE_FREE, true, false, false, false);
+        // add_node(2.0, 2.3, TOPO_NODE_FREE, true, false, false, true);
+        // add_node(2.0, 2.0, TOPO_NODE_FREE, false, false, true, true);
+        // add_node(1.6, 2.0, TOPO_NODE_FREE, false, true, false, false);
+        // add_node(1.6, 2.3, TOPO_NODE_FREE, true, false, false, false);
+        // add_node(1.1, 2.3, TOPO_NODE_FREE, true, true, false, false);
+        // add_node(1.1, 2.1, TOPO_NODE_FREE, false, false, true, true);
+        // add_node(0.0, 2.1, TOPO_NODE_FREE, false, true, false, false);
+        // add_node(0.0, 0.4, TOPO_NODE_FREE, false, true, true, false);
+        // add_node(0.5, 0.4, TOPO_NODE_FREE, false, false, true, true);
+        // add_node(0.5, 0.9, TOPO_NODE_FREE, true, true, false, true);
+
+        // // Go back
+        // add_node(0.5, 0.5, TOPO_NODE_FREE, false, false, true, true);
+        // add_node(0.14, 0.4, TOPO_NODE_FREE, false, true, true, false);
+        // add_node(0.06, 2.3, TOPO_NODE_FREE, true, true, false, false);
+        // add_node(0.17, 2.3, TOPO_NODE_FREE, true, false, false, true);
+        
     }
 
     ~Topological() {
@@ -174,13 +187,22 @@ public:
         for (nodeIte = nodes.begin(); nodeIte != nodes.end(); nodeIte++){
             // loop through old vector and load into new vector.
             // Check for type and position.
-            if (nodes[j]->value == value && std::abs(nodes[j]->x - x) < 0.15 && std::abs(nodes[j]->y - y) < 0.15){
+            if ((nodes[j]->value == TOPO_NODE_FREE || nodes[j]->value == TOPO_NODE_CURRENT) && std::abs(nodes[j]->x - x) < same_nodes_max_dist && std::abs(nodes[j]->y - y) < same_nodes_max_dist){
                 // Check for properties
+                if (check_properties(isWallNorth, (*nodeIte)->north))
+                    ROS_INFO("NORTH IS TRUE");
+                if(check_properties(isWallWest, (*nodeIte)->west))
+                    ROS_INFO("WEST IS TRUE");
+                if(check_properties(isWallSouth, (*nodeIte)->south))
+                    ROS_INFO("SOUTH IS TRUE");
+                if(check_properties(isWallEast, (*nodeIte)->east))
+                    ROS_INFO("EAST IS TRUE");
                 if ( check_properties(isWallNorth, (*nodeIte)->north) && check_properties(isWallWest, (*nodeIte)->west) && check_properties(isWallSouth, (*nodeIte)->south) && check_properties(isWallEast, (*nodeIte)->east)){                    
                     
                     // TODO: link last and (*nodeIte).
                     // Think that the problem lies in the traverse rather than the linking.
 
+                    link(last, *nodeIte);
                     set_as_last_node(*nodeIte);
                     return true;
                 }
@@ -192,34 +214,46 @@ public:
 
 private:
     void traverse(Node *start, std::function<void(Node*,Node*)> func) {
-        traverse(start, start->east, func);
-        traverse(start, start->north, func);
-        traverse(start, start->west, func);
-        traverse(start, start->south, func);
+        std::unordered_set<Node*> traversed_nodes;
+
+        traverse(traversed_nodes, start, start->east, func);
+        traverse(traversed_nodes, start, start->north, func);
+        traverse(traversed_nodes, start, start->west, func);
+        traverse(traversed_nodes, start, start->south, func);
     }
 
-    void traverse(Node *current, Node *next, std::function<void(Node*,Node*)> func) {
-        if(next == NULL) {
+    void traverse(std::unordered_set<Node*> traversed_nodes, Node *current, Node *next, std::function<void(Node*,Node*)> func) {
+        if(next == NULL || traversed_nodes.count(next) == 1) {
             return;
         }
+
+        traversed_nodes.insert(next);
 
         //ROS_INFO("x: %lf, y: %lf", current->x, current->y);
         func(current, next);
 
         if(current != next->east) {
-            traverse(next, next->east, func);
+            std::unordered_set<Node*> branch_traversed_nodes;
+            branch_traversed_nodes.insert(traversed_nodes.begin(), traversed_nodes.end());
+            traverse(branch_traversed_nodes, next, next->east, func);
         }
 
         if(current != next->north) {
-            traverse(next, next->north, func);
+            std::unordered_set<Node*> branch_traversed_nodes;
+            branch_traversed_nodes.insert(traversed_nodes.begin(), traversed_nodes.end());
+            traverse(branch_traversed_nodes, next, next->north, func);
         }
 
         if(current != next->west) {
-            traverse(next, next->west, func);
+            std::unordered_set<Node*> branch_traversed_nodes;
+            branch_traversed_nodes.insert(traversed_nodes.begin(), traversed_nodes.end());
+            traverse(branch_traversed_nodes, next, next->west, func);
         }
 
         if(current != next->south) {
-            traverse(next, next->south, func);
+            std::unordered_set<Node*> branch_traversed_nodes;
+            branch_traversed_nodes.insert(traversed_nodes.begin(), traversed_nodes.end());
+            traverse(branch_traversed_nodes, next, next->south, func);
         }
     }
 
@@ -240,14 +274,13 @@ private:
         last = new_last_node;
     }
 
+    // TODO: MAKE THIS BETTER
     bool check_properties(bool property, Node* node){
         if (node == NULL){
             return true;
         } else if (property == true && node->value == TOPO_NODE_WALL) {
             return true;
-        } else if (property == false && node->value == TOPO_NODE_FREE) {
-            return true;
-        } else if (property == false && node->value == TOPO_NODE_CURRENT) {
+        } else if (property == false) {
             return true;
         }
         return false;
@@ -309,6 +342,15 @@ private:
             return true;
         else 
             return false;
+    }
+
+    void add_params()
+    {
+        const char * home = ::getenv("HOME");
+        boost::property_tree::ptree pt;
+        boost::property_tree::read_json(home + CONFIG_DOC, pt);
+        // CIRCLE
+        same_nodes_max_dist = pt.get<double>("same_nodes_max_dist");
     }
 };
 

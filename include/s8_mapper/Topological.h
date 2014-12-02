@@ -4,6 +4,7 @@
 #include <visualization_msgs/MarkerArray.h>
 #include <visualization_msgs/Marker.h>
 #include <vector>
+#include <s8_utils/math.h>
 
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
@@ -55,13 +56,28 @@ public:
         //TODO remove below
         
         // Create initial node, TODO Have as part of initialization
-        add_node(0, 0.2, TOPO_NODE_WALL, false, false, false, false);
-        add_node(0, -0.2, TOPO_NODE_WALL, false, false, false, false);
-        add_node(-0.2, 0, TOPO_NODE_WALL, false, false, false, false);
+        // add_node(0, 0.2, TOPO_NODE_WALL, false, false, false, false);
+        // add_node(0, -0.2, TOPO_NODE_WALL, false, false, false, false);
+        // add_node(-0.2, 0, TOPO_NODE_WALL, false, false, false, false);
 
 
         // Add map nodes
-        
+
+        add_node(0, 0, TOPO_NODE_FREE, false, false, false, false);
+        add_node(1, 0, TOPO_NODE_FREE, false, false, false, false);
+        add_node(1, 1, TOPO_NODE_FREE, false, false, false, false);
+        add_node(0, 1, TOPO_NODE_FREE, false, false, false, false);
+        add_node(0, 2, TOPO_NODE_FREE, false, false, false, false);
+        add_node(0.5, 2, TOPO_NODE_FREE, false, false, false, false);
+        add_node(2, 2, TOPO_NODE_FREE, false, false, false, false);
+        add_node(2, 1, TOPO_NODE_FREE, false, false, false, false);
+        add_node(1, 1, TOPO_NODE_FREE, false, false, false, false);
+
+        auto path = dijkstra(root, [](Node * node){
+            ROS_INFO("(%.2lf, %.2lf)", node->x, node->y);
+            return s8::utils::math::is_equal(node->x, 0.5) && s8::utils::math::is_equal(node->y, 2);
+        });
+
         // add_node(2.0, 0, TOPO_NODE_FREE, false, false, true, true);
         // add_node(2.0, 0.5, TOPO_NODE_FREE, true, false, false, true);
         // add_node(1.5, 0.5, TOPO_NODE_FREE, false, true, true, false);
@@ -255,6 +271,86 @@ private:
             branch_traversed_nodes.insert(traversed_nodes.begin(), traversed_nodes.end());
             traverse(branch_traversed_nodes, next, next->south, func);
         }
+    }
+
+    std::vector<Node*> dijkstra(Node *start, std::function<bool(Node*)> target_node_evaluator) {
+        std::list<Node*> node_list;
+        std::map<Node*, Node*> previous;
+        std::map<Node*, double> distance;
+
+        auto get_closest_node = [&node_list, &distance]() {
+            Node * lowest_node = node_list.front();
+            for(auto n : node_list) {
+                if(distance[n] < distance[lowest_node]) {
+                    lowest_node = n;
+                }
+            }
+            return lowest_node;
+        };
+
+        auto get_neighbors = [&node_list](Node * node) {
+            std::vector<Node*> neighbors;
+
+            if(node->east != NULL && std::find(node_list.begin(), node_list.end(), node->east) != node_list.end()) {
+                neighbors.push_back(node->east);
+            }
+            if(node->north != NULL && std::find(node_list.begin(), node_list.end(), node->north) != node_list.end()) {
+                neighbors.push_back(node->north);
+            }
+            if(node->west != NULL && std::find(node_list.begin(), node_list.end(), node->west) != node_list.end()) {
+                neighbors.push_back(node->west);
+            }
+            if(node->south != NULL && std::find(node_list.begin(), node_list.end(), node->south) != node_list.end()) {
+                neighbors.push_back(node->south);
+            }
+
+            return neighbors;
+        };
+
+        auto length = [](Node * from, Node * to) {
+            double dx = from->x - to->x;
+            double dy = from->y - to->y;
+            return std::sqrt(dx*dx + dy*dy);
+        };
+
+        distance[start] = 0; //Distance from start to start is 0
+
+        for(Node * n : nodes) {
+            if(n != start) {
+                distance[n] = std::numeric_limits<double>::infinity();
+                previous[n] = NULL;
+            }
+            node_list.push_back(n);
+        }
+
+        Node * target = NULL;
+        while(!node_list.empty()) {
+            Node * closest_node = get_closest_node();
+            node_list.erase(std::find(node_list.begin(), node_list.end(), closest_node));
+
+            if(target_node_evaluator(closest_node)) {
+                target = closest_node;
+                break;
+            }
+
+            auto neighbors = get_neighbors(closest_node);
+            for(Node * neighbor_node : neighbors) {
+                double alt = distance[closest_node] + length(closest_node, neighbor_node);
+                if(alt < distance[closest_node]) {
+                    distance[neighbor_node] = alt;
+                    previous[neighbor_node] = closest_node;
+                }
+            }
+        }
+
+        std::vector<Node *> path;
+        Node * current = target;
+        while(previous.count(current) == 1) {
+            path.push_back(current);
+            current = previous[current];
+        }
+
+        return path;
     }
 
     void init(double x, double y) {

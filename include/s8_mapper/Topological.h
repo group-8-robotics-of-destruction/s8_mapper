@@ -18,10 +18,10 @@ const std::string CONFIG_DOC =  "/catkin_ws/src/s8_mapper/parameters/parameters.
 #define TOPO_NODE_OBJECT    1 << 3
 #define TOPO_NODE_CURRENT   1 << 4
 
-#define TOPO_EAST                7 * M_PI / 4
-#define TOPO_NORTH               M_PI / 4
-#define TOPO_WEST                3 * M_PI / 4
-#define TOPO_SOUTH               5 * M_PI / 4
+#define TOPO_EAST           7 * M_PI / 4
+#define TOPO_NORTH          M_PI / 4
+#define TOPO_WEST           3 * M_PI / 4
+#define TOPO_SOUTH          5 * M_PI / 4
 
 class Topological {
 public:
@@ -72,10 +72,30 @@ public:
         add_node(2, 1, TOPO_NODE_FREE, false, false, false, false);
         add_node(1, 1, TOPO_NODE_FREE, false, false, false, false);
 
+        for(auto n : nodes) {
+            std::string s = "Connections: ";
+            for(auto nn : n->neighbors) {
+                s += "(" + std::to_string(nn->x) + "," + std::to_string(nn->y) + ")";
+            }
+            ROS_INFO("(%lf %lf) %s", n->x, n->y, s.c_str());
+        }
+
+        // traverse(root, [](Node * from, Node * to){
+        //     ROS_INFO("(%.2lf, %.2lf) -> (%.2lf, %.2lf)", from->x, from->y, to->x, to->y);
+        // });
+
         auto path = dijkstra(root, [](Node * node){
             ROS_INFO("(%.2lf, %.2lf)", node->x, node->y);
             return s8::utils::math::is_equal(node->x, 0.5) && s8::utils::math::is_equal(node->y, 2);
         });
+
+        ROS_INFO("PATH");
+
+        for(Node * node : path) {
+            ROS_INFO("(%.2lf, %.2lf)", node->x, node->y);
+        }
+
+        exit(0);
 
         // add_node(2.0, 0, TOPO_NODE_FREE, false, false, true, true);
         // add_node(2.0, 0.5, TOPO_NODE_FREE, true, false, false, true);
@@ -288,7 +308,7 @@ private:
 
         for(Node * n : nodes) {
             if(n != start) {
-                distance[n] = std::numeric_limits<double>::infinity();
+                distance[n] = 1000;
                 previous[n] = NULL;
             }
             node_list.push_back(n);
@@ -305,8 +325,17 @@ private:
             }
 
             for(Node * neighbor_node : closest_node->neighbors) {
+                if(std::find(node_list.begin(), node_list.end(), neighbor_node) == node_list.end()) {
+                    //already checked this node.
+                    ROS_INFO("Already checked");
+                    break;
+                }
+
+
                 double alt = distance[closest_node] + length(closest_node, neighbor_node);
-                if(alt < distance[closest_node]) {
+                ROS_INFO("%lf", alt);
+
+                if(alt < distance[neighbor_node]) {
                     distance[neighbor_node] = alt;
                     previous[neighbor_node] = closest_node;
                 }
@@ -318,6 +347,10 @@ private:
         while(previous.count(current) == 1) {
             path.push_back(current);
             current = previous[current];
+        }
+
+        for(Node * n : nodes) {
+            ROS_INFO("(%.2lf, %.2lf) -> %s", n->x, n->y, (previous[n] == NULL ? "NULL" : "(" + std::to_string(previous[n]->x) + ", " + std::to_string(previous[n]->y) + ")").c_str());
         }
 
         return path;
@@ -341,12 +374,17 @@ private:
     }
 
     void link(Node *from, Node *to) {
+        if(from == to) {
+            return;
+        }
+
         auto from_connected = neighbors_in_heading(from, heading_between_nodes(from, to));
 
-        for(Node *n : from_connected) {
-            to->neighbors.insert(n);
-            n->neighbors.insert(to);
-        }
+        // for(Node *n : from_connected) {
+        //     ROS_INFO("form connected: %lf %lf", n->x, n->y);
+        //     to->neighbors.insert(n);
+        //     n->neighbors.insert(to);
+        // }
 
         to->neighbors.insert(from);
         from->neighbors.insert(to);

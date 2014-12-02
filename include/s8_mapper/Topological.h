@@ -18,29 +18,28 @@ const std::string CONFIG_DOC =  "/catkin_ws/src/s8_mapper/parameters/parameters.
 #define TOPO_NODE_OBJECT    1 << 3
 #define TOPO_NODE_CURRENT   1 << 4
 
+#define TOPO_EAST                7 * M_PI / 4
+#define TOPO_NORTH               M_PI / 4
+#define TOPO_WEST                3 * M_PI / 4
+#define TOPO_SOUTH               5 * M_PI / 4
+
 class Topological {
 public:
     struct Node {
-        Node *east;
-        Node *north;
-        Node *west;
-        Node *south;
+        std::unordered_set<Node*> neighbors;
         double x;
         double y;
         int value;
 
         Node(double x, double y, int value) : x(x), y(y), value(value) {
-            east = NULL;
-            north = NULL;
-            west = NULL;
-            south = NULL;
+            
         }
     };
 
 private:
     Node *root;
     Node *last;
-    std::vector<Node*> nodes;
+    std::unordered_set<Node*> nodes;
     double same_nodes_max_dist;
 
 public:
@@ -198,44 +197,53 @@ public:
     }
 
     bool does_node_exist(double x, double y, int value, bool isWallNorth, bool isWallWest, bool isWallSouth, bool isWallEast){
-        std::vector<Node*>::iterator nodeIte;
-        int j = 0;
-        for (nodeIte = nodes.begin(); nodeIte != nodes.end(); nodeIte++){
+        auto check_properties = [](bool is_wall, std::unordered_set<Node*> nodes) {
+            if(nodes.size() == 0) {
+                return true;
+            }
+
+            for(auto n : nodes) {
+                if(is_wall) {
+                    if(n->value == TOPO_NODE_WALL) {
+                        return true;
+                    }
+                } else {
+                    if(n->value != TOPO_NODE_WALL) {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        };
+
+        for (auto n : nodes){
             // loop through old vector and load into new vector.
             // Check for type and position.
-            if ((nodes[j]->value == TOPO_NODE_FREE || nodes[j]->value == TOPO_NODE_CURRENT) && std::abs(nodes[j]->x - x) < same_nodes_max_dist && std::abs(nodes[j]->y - y) < same_nodes_max_dist){
-                // Check for properties
-                if (check_properties(isWallNorth, (*nodeIte)->north))
-                    ROS_INFO("NORTH IS TRUE");
-                if(check_properties(isWallWest, (*nodeIte)->west))
-                    ROS_INFO("WEST IS TRUE");
-                if(check_properties(isWallSouth, (*nodeIte)->south))
-                    ROS_INFO("SOUTH IS TRUE");
-                if(check_properties(isWallEast, (*nodeIte)->east))
-                    ROS_INFO("EAST IS TRUE");
-                if ( check_properties(isWallNorth, (*nodeIte)->north) && check_properties(isWallWest, (*nodeIte)->west) && check_properties(isWallSouth, (*nodeIte)->south) && check_properties(isWallEast, (*nodeIte)->east)){                    
+            if ((n->value == TOPO_NODE_FREE || n->value == TOPO_NODE_CURRENT) && std::abs(n->x - x) < same_nodes_max_dist && std::abs(n->y - y) < same_nodes_max_dist){
+
+                if ( check_properties(isWallNorth, neighbors_in_heading(n, TOPO_NORTH)) && check_properties(isWallWest, neighbors_in_heading(n, TOPO_WEST)) && check_properties(isWallSouth, neighbors_in_heading(n, TOPO_SOUTH)) && check_properties(isWallEast, neighbors_in_heading(n, TOPO_EAST))){                    
                     
                     // TODO: link last and (*nodeIte).
                     // Think that the problem lies in the traverse rather than the linking.
 
-                    link(last, *nodeIte);
-                    set_as_last_node(*nodeIte);
+                    link(last, n);
+                    set_as_last_node(n);
                     return true;
                 }
             }
-            j++;
         }
-        return false; 
+        return false;
     }
 
 private:
     void traverse(Node *start, std::function<void(Node*,Node*)> func) {
         std::unordered_set<Node*> traversed_nodes;
+        traversed_nodes.insert(start);
 
-        traverse(traversed_nodes, start, start->east, func);
-        traverse(traversed_nodes, start, start->north, func);
-        traverse(traversed_nodes, start, start->west, func);
-        traverse(traversed_nodes, start, start->south, func);
+        for(Node * n : start->neighbors) {
+            traverse(traversed_nodes, start, n, func);
+        }
     }
 
     void traverse(std::unordered_set<Node*> traversed_nodes, Node *current, Node *next, std::function<void(Node*,Node*)> func) {
@@ -248,28 +256,10 @@ private:
         //ROS_INFO("x: %lf, y: %lf", current->x, current->y);
         func(current, next);
 
-        if(current != next->east) {
+        for(Node * n : next->neighbors) {
             std::unordered_set<Node*> branch_traversed_nodes;
             branch_traversed_nodes.insert(traversed_nodes.begin(), traversed_nodes.end());
-            traverse(branch_traversed_nodes, next, next->east, func);
-        }
-
-        if(current != next->north) {
-            std::unordered_set<Node*> branch_traversed_nodes;
-            branch_traversed_nodes.insert(traversed_nodes.begin(), traversed_nodes.end());
-            traverse(branch_traversed_nodes, next, next->north, func);
-        }
-
-        if(current != next->west) {
-            std::unordered_set<Node*> branch_traversed_nodes;
-            branch_traversed_nodes.insert(traversed_nodes.begin(), traversed_nodes.end());
-            traverse(branch_traversed_nodes, next, next->west, func);
-        }
-
-        if(current != next->south) {
-            std::unordered_set<Node*> branch_traversed_nodes;
-            branch_traversed_nodes.insert(traversed_nodes.begin(), traversed_nodes.end());
-            traverse(branch_traversed_nodes, next, next->south, func);
+            traverse(branch_traversed_nodes, next, n, func);
         }
     }
 
@@ -286,25 +276,6 @@ private:
                 }
             }
             return lowest_node;
-        };
-
-        auto get_neighbors = [&node_list](Node * node) {
-            std::vector<Node*> neighbors;
-
-            if(node->east != NULL && std::find(node_list.begin(), node_list.end(), node->east) != node_list.end()) {
-                neighbors.push_back(node->east);
-            }
-            if(node->north != NULL && std::find(node_list.begin(), node_list.end(), node->north) != node_list.end()) {
-                neighbors.push_back(node->north);
-            }
-            if(node->west != NULL && std::find(node_list.begin(), node_list.end(), node->west) != node_list.end()) {
-                neighbors.push_back(node->west);
-            }
-            if(node->south != NULL && std::find(node_list.begin(), node_list.end(), node->south) != node_list.end()) {
-                neighbors.push_back(node->south);
-            }
-
-            return neighbors;
         };
 
         auto length = [](Node * from, Node * to) {
@@ -333,8 +304,7 @@ private:
                 break;
             }
 
-            auto neighbors = get_neighbors(closest_node);
-            for(Node * neighbor_node : neighbors) {
+            for(Node * neighbor_node : closest_node->neighbors) {
                 double alt = distance[closest_node] + length(closest_node, neighbor_node);
                 if(alt < distance[closest_node]) {
                     distance[neighbor_node] = alt;
@@ -356,11 +326,11 @@ private:
     void init(double x, double y) {
         root = new Node(x, y, TOPO_NODE_FREE);
         last = root;
-        nodes.push_back(root);
+        nodes.insert(root);
     }
 
     void add(Node *last_node, Node *new_node) {
-        nodes.push_back(new_node);
+        nodes.insert(new_node);
         link(last_node, new_node);
     }
 
@@ -370,41 +340,16 @@ private:
         last = new_last_node;
     }
 
-    // TODO: MAKE THIS BETTER
-    bool check_properties(bool property, Node* node){
-        if (node == NULL){
-            return true;
-        } else if (property == true && node->value == TOPO_NODE_WALL) {
-            return true;
-        } else if (property == false) {
-            return true;
-        }
-        return false;
-    }
-
     void link(Node *from, Node *to) {
-        //TODO Make this better
-        if(std::abs(from->x - to->x) < std::abs(from->y - to->y)) {
-            if(to->y > from->y) {
-                from->north = to;
-                to->south = from;
-                //ROS_INFO("North - South");
-            } else {
-                from->south = to;
-                to->north = from;
-                //ROS_INFO("South - North");
-            }
-        } else {
-            if(to->x > from->x) {
-                from->east = to;
-                to->west = from;
-                //ROS_INFO("East - West");
-            } else {
-                from->west = to;
-                to->east = from;
-                //ROS_INFO("West - East");
-            }
+        auto from_connected = neighbors_in_heading(from, heading_between_nodes(from, to));
+
+        for(Node *n : from_connected) {
+            to->neighbors.insert(n);
+            n->neighbors.insert(to);
         }
+
+        to->neighbors.insert(from);
+        from->neighbors.insert(to);
     }
 
     void add_walls(double x, double y, bool isWallNorth, bool isWallWest, bool isWallSouth, bool isWallEast){
@@ -438,6 +383,43 @@ private:
             return true;
         else 
             return false;
+    }
+
+    double angle_to_heading(double angle) {
+        if(angle <= TOPO_NORTH || angle > TOPO_EAST) {
+            return TOPO_EAST;
+        }
+        if(angle <= TOPO_WEST || angle > TOPO_NORTH) {
+            return TOPO_NORTH;
+        }
+        if(angle <= TOPO_SOUTH || angle > TOPO_WEST) {
+            return TOPO_WEST;
+        }
+        if(angle <= TOPO_EAST || angle > TOPO_SOUTH) {
+            return TOPO_SOUTH;
+        }
+    }
+
+    double angle_between_nodes(Node * from, Node * to) {
+        double dx = to->x - from->x;
+        double dy = to->y - from->y;
+        return std::atan2(dy, dx);
+    }
+
+    double heading_between_nodes(Node * from, Node * to) {
+        return angle_to_heading(angle_between_nodes(from, to));
+    }
+
+    std::unordered_set<Node *> neighbors_in_heading(Node * node, double heading) {
+        std::unordered_set<Node *> neighbors;
+
+        for(auto n : node->neighbors) {
+            if(heading_between_nodes(node, n) == heading) {
+                neighbors.insert(n);
+            }
+        }
+
+        return neighbors;
     }
 
     void add_params()

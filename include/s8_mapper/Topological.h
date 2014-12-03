@@ -69,7 +69,7 @@ public:
 
 
         // Add map nodes
-/*
+
         add_node(0, 0, TOPO_NODE_FREE, false, false, false, false);
         add_node(1, 0, TOPO_NODE_FREE, false, false, false, false);
         add_node(1, 1, TOPO_NODE_FREE, false, false, false, false);
@@ -82,9 +82,13 @@ public:
         add_node(2, 1, TOPO_NODE_FREE, false, false, false, false);
         add_node(1, 1, TOPO_NODE_FREE, false, false, false, false);
 
-        const std::string home = ::getenv("HOME");
-        save_to_file(home + "/maps/map.json");
-*/
+        // const std::string home = ::getenv("HOME");
+        // save_to_file(home + "/maps/map.json");
+
+        // const std::string home = ::getenv("HOME");
+        // load_from_file(home + "/maps/map.json");
+
+
         // for(auto n : nodes) {
         //     std::string s = "Connections: ";
         //     for(auto nn : n->neighbors) {
@@ -302,6 +306,41 @@ public:
         pt.add_child("nodes", pt_nodes);
         pt.put("root", root->id);
         write_json(filename, pt);
+
+        return true;
+    }
+
+    bool load_from_file(const std::string & filename) {
+        std::map<long, Node *> ids;
+        boost::property_tree::ptree pt;
+        boost::property_tree::read_json(filename, pt);
+
+        long root_id = pt.get<long>("root");
+
+        //Create nodes.
+        BOOST_FOREACH(boost::property_tree::ptree::value_type &v, pt.get_child("nodes")) {
+            auto node_pt = v.second;
+            Node *n = new Node(node_pt.get<double>("x"), node_pt.get<double>("y"), node_pt.get<int>("value"), node_pt.get<long>("id"));
+            nodes.insert(n);
+            if(n->id == root_id) {
+                root = n;
+            }
+            ids[n->id] = n;
+        }
+
+        //Link nodes.
+        BOOST_FOREACH(boost::property_tree::ptree::value_type &v, pt.get_child("nodes")) {
+            auto node_pt = v.second;
+            Node *n = ids[node_pt.get<long>("id")];
+            BOOST_FOREACH(boost::property_tree::ptree::value_type &v2, node_pt.get_child("neighbors")) {
+                auto neighbor_pt = v2.second;
+                long neighbor_id = neighbor_pt.get<long>("");
+                Node *nn = ids[neighbor_id];
+                n->neighbors.insert(nn);
+            }
+        }
+
+        return true;
     }
 
 private:

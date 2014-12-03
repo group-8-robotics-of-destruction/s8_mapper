@@ -30,9 +30,14 @@ public:
         double x;
         double y;
         int value;
+        long id;
 
         Node(double x, double y, int value) : x(x), y(y), value(value) {
-            
+            id = rand();
+        }
+
+        Node(double x, double y, int value, long id) : x(x), y(y), value(value), id(id) {
+
         }
     };
 
@@ -44,6 +49,7 @@ private:
 
 public:
     Topological() {
+        srand(0); //Just want random in the lifespan of the map node execution.
         init(0, 0);
     }
 
@@ -57,24 +63,27 @@ public:
         //TODO remove below
         
         // Create initial node, TODO Have as part of initialization
-        //add_node(0, 0.2, TOPO_NODE_WALL, false, false, false, false);
-        //add_node(0, -0.2, TOPO_NODE_WALL, false, false, false, false);
-        //add_node(-0.2, 0, TOPO_NODE_WALL, false, false, false, false);
+        // add_node(0, 0.2, TOPO_NODE_WALL, false, false, false, false);
+        // add_node(0, -0.2, TOPO_NODE_WALL, false, false, false, false);
+        // add_node(-0.2, 0, TOPO_NODE_WALL, false, false, false, false);
 
 
         // Add map nodes
 
-        // add_node(0, 0, TOPO_NODE_FREE, false, false, false, false);
-        // add_node(1, 0, TOPO_NODE_FREE, false, false, false, false);
-        // add_node(1, 1, TOPO_NODE_FREE, false, false, false, false);
-        // add_node(0.5, 1, TOPO_NODE_FREE, false, false, false, false);
-        // add_node(0, 1, TOPO_NODE_FREE, false, false, false, false);
-        // add_node(0, 1.5, TOPO_NODE_FREE, false, false, false, false);
-        // add_node(0, 2, TOPO_NODE_FREE, false, false, false, false);
-        // add_node(0.5, 2, TOPO_NODE_FREE, false, false, false, false);
-        // add_node(2, 2, TOPO_NODE_FREE, false, false, false, false);
-        // add_node(2, 1, TOPO_NODE_FREE, false, false, false, false);
-        // add_node(1, 1, TOPO_NODE_FREE, false, false, false, false);
+        add_node(0, 0, TOPO_NODE_FREE, false, false, false, false);
+        add_node(1, 0, TOPO_NODE_FREE, false, false, false, false);
+        add_node(1, 1, TOPO_NODE_FREE, false, false, false, false);
+        add_node(0.5, 1, TOPO_NODE_FREE, false, false, false, false);
+        add_node(0, 1, TOPO_NODE_FREE, false, false, false, false);
+        add_node(0, 1.5, TOPO_NODE_FREE, false, false, false, false);
+        add_node(0, 2, TOPO_NODE_FREE, false, false, false, false);
+        add_node(0.5, 2, TOPO_NODE_FREE, false, false, false, false);
+        add_node(2, 2, TOPO_NODE_FREE, false, false, false, false);
+        add_node(2, 1, TOPO_NODE_FREE, false, false, false, false);
+        add_node(1, 1, TOPO_NODE_FREE, false, false, false, false);
+
+        const std::string home = ::getenv("HOME");
+        save_to_file(home + "/maps/map.json");
 
         // for(auto n : nodes) {
         //     std::string s = "Connections: ";
@@ -265,6 +274,33 @@ public:
             return false;
         else
             return true;
+    }
+
+    bool save_to_file(const std::string & filename) {
+        boost::property_tree::ptree pt;
+        boost::property_tree::ptree pt_nodes;
+
+        for(Node * n : nodes) {
+            boost::property_tree::ptree pt_node;
+            pt_node.put("id", n->id);
+            pt_node.put("x", n->x);
+            pt_node.put("y", n->y);
+            pt_node.put("value", n->value);
+
+            boost::property_tree::ptree pt_neighbors;
+            for(Node * nn : n->neighbors) {
+                boost::property_tree::ptree pt_neighbor;
+                pt_neighbor.put("", nn->id);
+                pt_neighbors.push_back(std::make_pair("", pt_neighbor));
+            }
+
+            pt_node.add_child("neighbors", pt_neighbors);
+            pt_nodes.push_back(std::make_pair("", pt_node));
+        }
+
+        pt.add_child("nodes", pt_nodes);
+        pt.put("root", root->id);
+        write_json(filename, pt);
     }
 
 private:

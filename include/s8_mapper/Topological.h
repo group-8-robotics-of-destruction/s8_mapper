@@ -55,9 +55,9 @@ public:
         //TODO remove below
         
         // Create initial node, TODO Have as part of initialization
-        // add_node(0, 0.2, TOPO_NODE_WALL, false, false, false, false);
-        // add_node(0, -0.2, TOPO_NODE_WALL, false, false, false, false);
-        // add_node(-0.2, 0, TOPO_NODE_WALL, false, false, false, false);
+        add_node(0, 0.2, TOPO_NODE_WALL, false, false, false, false);
+        add_node(0, -0.2, TOPO_NODE_WALL, false, false, false, false);
+        add_node(-0.2, 0, TOPO_NODE_WALL, false, false, false, false);
 
 
         // Add map nodes
@@ -358,11 +358,7 @@ private:
     }
 
     void add(Node *last_node, Node *new_node) {
-        if (nodes.size() == 0){
-            root = new_node;
-            last = root;
-        }
-        nodes.insert(root);
+        nodes.insert(new_node);
         link(last_node, new_node);
     }
 

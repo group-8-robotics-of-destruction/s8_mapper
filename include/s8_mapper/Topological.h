@@ -69,7 +69,7 @@ public:
 
 
         // Add map nodes
-
+/*
         add_node(0, 0, TOPO_NODE_FREE, false, false, false, false);
         add_node(1, 0, TOPO_NODE_FREE, false, false, false, false);
         add_node(1, 1, TOPO_NODE_FREE, false, false, false, false);
@@ -84,7 +84,7 @@ public:
 
         const std::string home = ::getenv("HOME");
         save_to_file(home + "/maps/map.json");
-
+*/
         // for(auto n : nodes) {
         //     std::string s = "Connections: ";
         //     for(auto nn : n->neighbors) {
@@ -127,6 +127,7 @@ public:
             Node* tmp = new Node(x, y, value);
             add(last, tmp); 
             add_walls(x, y, isWallNorth, isWallWest, isWallSouth, isWallEast);
+	    ROS_INFO("INITIALIZING");
         }
         else if (value == TOPO_NODE_FREE || value == TOPO_NODE_CURRENT){
             if (!does_node_exist(x, y, TOPO_NODE_FREE, isWallNorth, isWallWest, isWallSouth, isWallEast)){

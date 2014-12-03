@@ -62,47 +62,51 @@ public:
 
         // Add map nodes
 
-        add_node(0, 0, TOPO_NODE_FREE, false, false, false, false);
-        add_node(1, 0, TOPO_NODE_FREE, false, false, false, false);
-        add_node(1, 1, TOPO_NODE_FREE, false, false, false, false);
-        add_node(0, 1, TOPO_NODE_FREE, false, false, false, false);
-        add_node(0, 2, TOPO_NODE_FREE, false, false, false, false);
-        add_node(0.5, 2, TOPO_NODE_FREE, false, false, false, false);
-        add_node(2, 2, TOPO_NODE_FREE, false, false, false, false);
-        add_node(2, 1, TOPO_NODE_FREE, false, false, false, false);
-        add_node(1, 1, TOPO_NODE_FREE, false, false, false, false);
-/*
-        for(auto n : nodes) {
-            std::string s = "Connections: ";
-            for(auto nn : n->neighbors) {
-                s += "(" + std::to_string(nn->x) + "," + std::to_string(nn->y) + ")";
-            }
-            ROS_INFO("(%lf %lf) %s", n->x, n->y, s.c_str());
-        }
+        // add_node(0, 0, TOPO_NODE_FREE, false, false, false, false);
+        // add_node(1, 0, TOPO_NODE_FREE, false, false, false, false);
+        // add_node(1, 1, TOPO_NODE_FREE, false, false, false, false);
+        // add_node(0.5, 1, TOPO_NODE_FREE, false, false, false, false);
+        // add_node(0, 1, TOPO_NODE_FREE, false, false, false, false);
+        // add_node(0, 1.5, TOPO_NODE_FREE, false, false, false, false);
+        // add_node(0, 2, TOPO_NODE_FREE, false, false, false, false);
+        // add_node(0.5, 2, TOPO_NODE_FREE, false, false, false, false);
+        // add_node(2, 2, TOPO_NODE_FREE, false, false, false, false);
+        // add_node(2, 1, TOPO_NODE_FREE, false, false, false, false);
+        // add_node(1, 1, TOPO_NODE_FREE, false, false, false, false);
 
-        // traverse(root, [](Node * from, Node * to){
-        //     ROS_INFO("(%.2lf, %.2lf) -> (%.2lf, %.2lf)", from->x, from->y, to->x, to->y);
+        // for(auto n : nodes) {
+        //     std::string s = "Connections: ";
+        //     for(auto nn : n->neighbors) {
+        //         s += "(" + std::to_string(nn->x) + "," + std::to_string(nn->y) + ")";
+        //     }
+        //     ROS_INFO("(%lf %lf) %s", n->x, n->y, s.c_str());
+        // }
+
+        // // traverse(root, [](Node * from, Node * to){
+        // //     ROS_INFO("(%.2lf, %.2lf) -> (%.2lf, %.2lf)", from->x, from->y, to->x, to->y);
+        // // });
+
+        // auto path = dijkstra(root, [](Node * node){
+        //     ROS_INFO("(%.2lf, %.2lf)", node->x, node->y);
+        //     return s8::utils::math::is_equal(node->x, 0.5) && s8::utils::math::is_equal(node->y, 2);
         // });
 
-        auto path = dijkstra(root, [](Node * node){
-            ROS_INFO("(%.2lf, %.2lf)", node->x, node->y);
-            return s8::utils::math::is_equal(node->x, 0.5) && s8::utils::math::is_equal(node->y, 2);
-        });
+        // ROS_INFO("PATH");
 
-        ROS_INFO("PATH");
+        // for(Node * node : path) {
+        //     ROS_INFO("(%.2lf, %.2lf)", node->x, node->y);
+        // }
 
-        for(Node * node : path) {
-            ROS_INFO("(%.2lf, %.2lf)", node->x, node->y);
-        }
+        // exit(0);
 
-        exit(0);
-*/
         // add_node(2.0, 0, TOPO_NODE_FREE, false, false, true, true);
         // add_node(2.0, 2.0, TOPO_NODE_FREE, true, false, false, true);
-        // add_node(1.0, 2.0, TOPO_NODE_FREE, true, true, false, false);
-        // ROS_INFO("LAST NODE");
-        // add_node(1.0, 0.15, TOPO_NODE_FREE, false, false, true, false);
-        // add_node(0.0, 0.15, TOPO_NODE_FREE, true, true, false, false);
+        // add_node(1.5, 2.0, TOPO_NODE_FREE, true, true, false, false);
+        // // ROS_INFO("LAST NODE");
+        // add_node(1.5, 0.15, TOPO_NODE_FREE, false, false, true, false);
+        // add_node(0.1, 0.25, TOPO_NODE_FREE, true, true, false, false);
+        // add_node(1.5, 0.20, TOPO_NODE_FREE, false, false, true, false);
+        // add_node(0.0, 0.25, TOPO_NODE_FREE, true, true, false, false);
     }
 
     ~Topological() {
@@ -240,9 +244,11 @@ public:
                         if ( check_properties(isWallNorth, neighbors_in_heading(n, TOPO_NORTH)) && check_properties(isWallWest, neighbors_in_heading(n, TOPO_WEST)) && check_properties(isWallSouth, neighbors_in_heading(n, TOPO_SOUTH)) && check_properties(isWallEast, neighbors_in_heading(n, TOPO_EAST))){                    
                             // TODO: link last and (*nodeIte).
                             // Think that the problem lies in the traverse rather than the linking.
-                            link(last, n);
-                            set_as_last_node(n);
-                            return true;
+                            if (n->neighbors.count(last)>0){
+                                //link(last, n);
+                                set_as_last_node(n);
+                                return true;
+                            }
                         } 
                     }  
                 }
@@ -279,6 +285,18 @@ private:
     }
 
     std::vector<Node*> dijkstra(Node *start, std::function<bool(Node*)> target_node_evaluator) {
+        const double NODE_DISTANCE_PENALTY = 0.30;
+
+        auto length = [&NODE_DISTANCE_PENALTY](Node * from, Node * to) {
+            double dx = from->x - to->x;
+            double dy = from->y - to->y;
+            return std::sqrt(dx*dx + dy*dy) + NODE_DISTANCE_PENALTY;
+        };
+
+        return dijkstra(start, target_node_evaluator, length);
+    }
+
+    std::vector<Node*> dijkstra(Node *start, std::function<bool(Node*)> target_node_evaluator, std::function<double(Node*,Node*)> length) {
         std::list<Node*> node_list;
         std::map<Node*, Node*> previous;
         std::map<Node*, double> distance;
@@ -291,12 +309,6 @@ private:
                 }
             }
             return lowest_node;
-        };
-
-        auto length = [](Node * from, Node * to) {
-            double dx = from->x - to->x;
-            double dy = from->y - to->y;
-            return std::sqrt(dx*dx + dy*dy);
         };
 
         distance[start] = 0; //Distance from start to start is 0
@@ -322,13 +334,10 @@ private:
             for(Node * neighbor_node : closest_node->neighbors) {
                 if(std::find(node_list.begin(), node_list.end(), neighbor_node) == node_list.end()) {
                     //already checked this node.
-                    ROS_INFO("Already checked");
-                    break;
+                    continue;
                 }
 
-
                 double alt = distance[closest_node] + length(closest_node, neighbor_node);
-                ROS_INFO("%lf", alt);
 
                 if(alt < distance[neighbor_node]) {
                     distance[neighbor_node] = alt;
@@ -337,15 +346,14 @@ private:
             }
         }
 
+        double path_length = 0;
         std::vector<Node *> path;
         Node * current = target;
+        path.push_back(current);
         while(previous.count(current) == 1) {
-            path.push_back(current);
+            path.push_back(previous[current]);
+            path_length += length(previous[current], current);
             current = previous[current];
-        }
-
-        for(Node * n : nodes) {
-            ROS_INFO("(%.2lf, %.2lf) -> %s", n->x, n->y, (previous[n] == NULL ? "NULL" : "(" + std::to_string(previous[n]->x) + ", " + std::to_string(previous[n]->y) + ")").c_str());
         }
 
         return path;
@@ -358,11 +366,7 @@ private:
     }
 
     void add(Node *last_node, Node *new_node) {
-        if (nodes.size() == 0){
-            root = new_node;
-            last = root;
-        }
-        nodes.insert(root);
+        nodes.insert(new_node);
         link(last_node, new_node);
     }
 

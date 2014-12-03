@@ -18,10 +18,10 @@ const std::string CONFIG_DOC =  "/catkin_ws/src/s8_mapper/parameters/parameters.
 #define TOPO_NODE_OBJECT    1 << 3
 #define TOPO_NODE_CURRENT   1 << 4
 
-#define TOPO_EAST           7 * M_PI / 4
-#define TOPO_NORTH          M_PI / 4
+#define TOPO_EAST           -1 * M_PI / 4
+#define TOPO_NORTH          1 * M_PI / 4
 #define TOPO_WEST           3 * M_PI / 4
-#define TOPO_SOUTH          5 * M_PI / 4
+#define TOPO_SOUTH          -3 * M_PI / 4
 
 class Topological {
 public:
@@ -55,9 +55,9 @@ public:
         //TODO remove below
         
         // Create initial node, TODO Have as part of initialization
-        // add_node(0, 0.2, TOPO_NODE_WALL, false, false, false, false);
-        // add_node(0, -0.2, TOPO_NODE_WALL, false, false, false, false);
-        // add_node(-0.2, 0, TOPO_NODE_WALL, false, false, false, false);
+        add_node(0, 0.2, TOPO_NODE_WALL, false, false, false, false);
+        add_node(0, -0.2, TOPO_NODE_WALL, false, false, false, false);
+        add_node(-0.2, 0, TOPO_NODE_WALL, false, false, false, false);
 
 
         // Add map nodes
@@ -71,7 +71,7 @@ public:
         add_node(2, 2, TOPO_NODE_FREE, false, false, false, false);
         add_node(2, 1, TOPO_NODE_FREE, false, false, false, false);
         add_node(1, 1, TOPO_NODE_FREE, false, false, false, false);
-
+/*
         for(auto n : nodes) {
             std::string s = "Connections: ";
             for(auto nn : n->neighbors) {
@@ -96,32 +96,13 @@ public:
         }
 
         exit(0);
-
+*/
         // add_node(2.0, 0, TOPO_NODE_FREE, false, false, true, true);
-        // add_node(2.0, 0.5, TOPO_NODE_FREE, true, false, false, true);
-        // add_node(1.5, 0.5, TOPO_NODE_FREE, false, true, true, false);
-        // add_node(1.5, 1.0, TOPO_NODE_FREE, true, true, false, false);
-        // add_node(2.0, 1.0, TOPO_NODE_FREE, false, false, true, true);
-        // add_node(2.0, 1.5, TOPO_NODE_FREE, true, false, false, true);
-        // add_node(1.5, 1.5, TOPO_NODE_FREE, false, true, true, false);
-        // add_node(1.5, 2.3, TOPO_NODE_FREE, true, false, false, false);
-        // add_node(2.0, 2.3, TOPO_NODE_FREE, true, false, false, true);
-        // add_node(2.0, 2.0, TOPO_NODE_FREE, false, false, true, true);
-        // add_node(1.6, 2.0, TOPO_NODE_FREE, false, true, false, false);
-        // add_node(1.6, 2.3, TOPO_NODE_FREE, true, false, false, false);
-        // add_node(1.1, 2.3, TOPO_NODE_FREE, true, true, false, false);
-        // add_node(1.1, 2.1, TOPO_NODE_FREE, false, false, true, true);
-        // add_node(0.0, 2.1, TOPO_NODE_FREE, false, true, false, false);
-        // add_node(0.0, 0.4, TOPO_NODE_FREE, false, true, true, false);
-        // add_node(0.5, 0.4, TOPO_NODE_FREE, false, false, true, true);
-        // add_node(0.5, 0.9, TOPO_NODE_FREE, true, true, false, true);
-
-        // // Go back
-        // add_node(0.5, 0.5, TOPO_NODE_FREE, false, false, true, true);
-        // add_node(0.14, 0.4, TOPO_NODE_FREE, false, true, true, false);
-        // add_node(0.06, 2.3, TOPO_NODE_FREE, true, true, false, false);
-        // add_node(0.17, 2.3, TOPO_NODE_FREE, true, false, false, true);
-        
+        // add_node(2.0, 2.0, TOPO_NODE_FREE, true, false, false, true);
+        // add_node(1.0, 2.0, TOPO_NODE_FREE, true, true, false, false);
+        // ROS_INFO("LAST NODE");
+        // add_node(1.0, 0.15, TOPO_NODE_FREE, false, false, true, false);
+        // add_node(0.0, 0.15, TOPO_NODE_FREE, true, true, false, false);
     }
 
     ~Topological() {
@@ -228,28 +209,42 @@ public:
                         return true;
                     }
                 } else {
-                    if(n->value != TOPO_NODE_WALL) {
-                        return true;
-                    }
+                    //if(n->value != TOPO_NODE_WALL) {
+                    //    return true;
+                    //}
+                    return true;
                 }
             }
-
             return false;
         };
 
         for (auto n : nodes){
             // loop through old vector and load into new vector.
             // Check for type and position.
-            if ((n->value == TOPO_NODE_FREE || n->value == TOPO_NODE_CURRENT) && std::abs(n->x - x) < same_nodes_max_dist && std::abs(n->y - y) < same_nodes_max_dist){
+            if (n->value == TOPO_NODE_FREE || n->value == TOPO_NODE_CURRENT){
 
-                if ( check_properties(isWallNorth, neighbors_in_heading(n, TOPO_NORTH)) && check_properties(isWallWest, neighbors_in_heading(n, TOPO_WEST)) && check_properties(isWallSouth, neighbors_in_heading(n, TOPO_SOUTH)) && check_properties(isWallEast, neighbors_in_heading(n, TOPO_EAST))){                    
-                    
-                    // TODO: link last and (*nodeIte).
-                    // Think that the problem lies in the traverse rather than the linking.
-
-                    link(last, n);
-                    set_as_last_node(n);
-                    return true;
+                // Check only based on distance in world coordinates
+                if (std::abs(n->x - x) < same_nodes_max_dist && std::abs(n->y - y) < same_nodes_max_dist){
+                    if ( check_properties(isWallNorth, neighbors_in_heading(n, TOPO_NORTH)) && check_properties(isWallWest, neighbors_in_heading(n, TOPO_WEST)) && check_properties(isWallSouth, neighbors_in_heading(n, TOPO_SOUTH)) && check_properties(isWallEast, neighbors_in_heading(n, TOPO_EAST))){                    
+                        
+                        // TODO: link last and (*nodeIte).
+                        // Think that the problem lies in the traverse rather than the linking.
+                        link(last, n);
+                        set_as_last_node(n);
+                        return true;
+                    }
+                }
+                // Check based on euclidean distance if traveling between two known nodes.
+                else if (std::abs( euclidian_distance(x, last->x, y, last->y) - euclidian_distance(n->x, last->x, n->y, last->y)) < same_nodes_max_dist){
+                    if (heading_between_nodes(last, x, y) == heading_between_nodes(last, n)){
+                        if ( check_properties(isWallNorth, neighbors_in_heading(n, TOPO_NORTH)) && check_properties(isWallWest, neighbors_in_heading(n, TOPO_WEST)) && check_properties(isWallSouth, neighbors_in_heading(n, TOPO_SOUTH)) && check_properties(isWallEast, neighbors_in_heading(n, TOPO_EAST))){                    
+                            // TODO: link last and (*nodeIte).
+                            // Think that the problem lies in the traverse rather than the linking.
+                            link(last, n);
+                            set_as_last_node(n);
+                            return true;
+                        } 
+                    }  
                 }
             }
         }
@@ -386,6 +381,24 @@ private:
         //     n->neighbors.insert(to);
         // }
 
+        // Loop through neighbours and add connections to the new node.
+        if (to->value == TOPO_NODE_FREE || to->value == TOPO_NODE_CURRENT){
+            double heading = heading_between_nodes(from, to);
+            for (Node * n : from->neighbors){
+                if (n->value != TOPO_NODE_WALL && heading == heading_between_nodes(from, n)){
+                    to->neighbors.insert(n);
+                    n->neighbors.insert(to);
+                }
+            }
+            heading = heading_between_nodes(to, from);
+            for (Node * n : to->neighbors){
+                if (n->value != TOPO_NODE_WALL && heading == heading_between_nodes(to, n)){
+                    from->neighbors.insert(n);
+                    n->neighbors.insert(from);
+                }
+            }
+        }
+
         to->neighbors.insert(from);
         from->neighbors.insert(to);
     }
@@ -424,16 +437,16 @@ private:
     }
 
     double angle_to_heading(double angle) {
-        if(angle <= TOPO_NORTH || angle > TOPO_EAST) {
+        if(angle <= TOPO_NORTH && angle > TOPO_EAST) {
             return TOPO_EAST;
         }
-        if(angle <= TOPO_WEST || angle > TOPO_NORTH) {
+        if(angle <= TOPO_WEST && angle > TOPO_NORTH) {
             return TOPO_NORTH;
         }
         if(angle <= TOPO_SOUTH || angle > TOPO_WEST) {
             return TOPO_WEST;
         }
-        if(angle <= TOPO_EAST || angle > TOPO_SOUTH) {
+        if(angle <= TOPO_EAST && angle > TOPO_SOUTH) {
             return TOPO_SOUTH;
         }
     }
@@ -444,8 +457,18 @@ private:
         return std::atan2(dy, dx);
     }
 
+    double angle_between_nodes(Node * from, double x_to, double y_to) {
+        double dx = x_to - from->x;
+        double dy = y_to - from->y;
+        return std::atan2(dy, dx);
+    }
+
     double heading_between_nodes(Node * from, Node * to) {
         return angle_to_heading(angle_between_nodes(from, to));
+    }
+
+    double heading_between_nodes(Node * from, double x_to, double y_to) {
+        return angle_to_heading(angle_between_nodes(from, x_to, y_to));
     }
 
     std::unordered_set<Node *> neighbors_in_heading(Node * node, double heading) {
@@ -458,6 +481,13 @@ private:
         }
 
         return neighbors;
+    }
+
+    double euclidian_distance(double x_from, double x_to, double y_from, double y_to){
+        double xd = std::abs(x_from - x_to);
+        double yd = std::abs(y_from - y_to);
+
+        return std::sqrt(xd*xd + yd*yd);
     }
 
     void add_params()

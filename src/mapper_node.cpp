@@ -114,7 +114,7 @@ public:
 
         occupancy_grid.update(ir_readings, ir_world_positions, robot_pose);
 
-        if(should_render()) {
+        if(should_render() && topological.is_root_initialized()) {
             visualization_msgs::MarkerArray markerArray;
 
             occupancy_grid.render();

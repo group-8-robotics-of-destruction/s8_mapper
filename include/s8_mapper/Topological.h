@@ -49,15 +49,17 @@ public:
 
     Topological(double x, double y) {
         add_params();
+        root = NULL;
+        last = NULL;
 
-        init(x, y);
+        //init(x, y);
 
         //TODO remove below
         
         // Create initial node, TODO Have as part of initialization
-        add_node(0, 0.2, TOPO_NODE_WALL, false, false, false, false);
-        add_node(0, -0.2, TOPO_NODE_WALL, false, false, false, false);
-        add_node(-0.2, 0, TOPO_NODE_WALL, false, false, false, false);
+        //add_node(0, 0.2, TOPO_NODE_WALL, false, false, false, false);
+        //add_node(0, -0.2, TOPO_NODE_WALL, false, false, false, false);
+        //add_node(-0.2, 0, TOPO_NODE_WALL, false, false, false, false);
 
 
         // Add map nodes
@@ -99,14 +101,10 @@ public:
 
         // exit(0);
 
-        // add_node(2.0, 0, TOPO_NODE_FREE, false, false, true, true);
-        // add_node(2.0, 2.0, TOPO_NODE_FREE, true, false, false, true);
-        // add_node(1.5, 2.0, TOPO_NODE_FREE, true, true, false, false);
-        // // ROS_INFO("LAST NODE");
-        // add_node(1.5, 0.15, TOPO_NODE_FREE, false, false, true, false);
-        // add_node(0.1, 0.25, TOPO_NODE_FREE, true, true, false, false);
-        // add_node(1.5, 0.20, TOPO_NODE_FREE, false, false, true, false);
-        // add_node(0.0, 0.25, TOPO_NODE_FREE, true, true, false, false);
+        // ROS_INFO("almost adding");
+        // add_node(x, y, TOPO_NODE_FREE, true, true, true, false);
+        // ROS_INFO("added");
+        // add_node(2.0, 0.0, TOPO_NODE_FREE, true, false, true, true);
     }
 
     ~Topological() {
@@ -116,7 +114,12 @@ public:
     }
 
     void add_node(double x, double y, int value, bool isWallNorth, bool isWallWest, bool isWallSouth, bool isWallEast) {
-        if (value == TOPO_NODE_FREE || value == TOPO_NODE_CURRENT){
+        if (!is_root_initialized()){
+            Node* tmp = new Node(x, y, value);
+            add(last, tmp); 
+            add_walls(x, y, isWallNorth, isWallWest, isWallSouth, isWallEast);
+        }
+        else if (value == TOPO_NODE_FREE || value == TOPO_NODE_CURRENT){
             if (!does_node_exist(x, y, TOPO_NODE_FREE, isWallNorth, isWallWest, isWallSouth, isWallEast)){
                 Node* tmp = new Node(x, y, value);
                 add(last, tmp);
@@ -257,6 +260,13 @@ public:
         return false;
     }
 
+    bool is_root_initialized(){
+        if (root == NULL)
+            return false;
+        else
+            return true;
+    }
+
 private:
     void traverse(Node *start, std::function<void(Node*,Node*)> func) {
         std::unordered_set<Node*> traversed_nodes;
@@ -366,8 +376,16 @@ private:
     }
 
     void add(Node *last_node, Node *new_node) {
-        nodes.insert(new_node);
-        link(last_node, new_node);
+        if (!is_root_initialized()){
+            root = new_node;
+            last = root;
+            ROS_INFO("initialization");
+            nodes.insert(new_node);
+        }
+        else{
+            nodes.insert(new_node);
+            link(last_node, new_node);
+        }
     }
 
     void set_as_last_node(Node* new_last_node){

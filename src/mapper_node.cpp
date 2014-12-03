@@ -5,7 +5,10 @@
 #include <s8_pose/pose_node.h>
 #include <s8_mapper/OccupancyGrid.h>
 #include <s8_mapper/Topological.h>
+#include <s8_mapper/Navigator.h>
 #include <vector>
+#include <signal.h>
+#include <time.h>
 
 #include <visualization_msgs/MarkerArray.h>
 #include <visualization_msgs/Marker.h>
@@ -81,6 +84,8 @@ class Mapper : public s8::Node {
 
     ros::ServiceServer place_node_service;
 
+    Navigator navigator;
+
 public:
     Mapper() : left_back_reading(TRESHOLD_VALUE), left_front_reading(TRESHOLD_VALUE), right_front_reading(TRESHOLD_VALUE), right_back_reading(TRESHOLD_VALUE), render_frame_skips(0), render_frames_to_skip((HZ / RENDER_HZ) - 1), robot_rotation(0), map_state(0), map_state_rendered(-1), robot_x(0.0), robot_y(0.0), prev_robot_x(0.0), prev_robot_y(0.0), robot_pose(0, 0, -90) {
         init_params();
@@ -104,6 +109,10 @@ public:
         place_node_service = nh.advertiseService(SERVICE_PLACE_NODE, &Mapper::place_node_callback, this);
 
         topological = Topological(0, 0);
+
+        navigator = Navigator(&topological, std::bind(&Mapper::go_to_unexplored_place_callback, this, std::placeholders::_1));
+
+        //navigator.go_to_unexplored_place();
     }
 
     void update() {
@@ -173,7 +182,26 @@ public:
         render_robot(0, 0, 0);
     }
 
+    void save() {
+        if(!topological.is_root_initialized()) {
+            return;
+        }
+
+        std::string home = ::getenv("HOME");
+        std::string filename = home + "/maps/map_" + std::to_string(time(NULL)) + ".json";
+
+        ROS_INFO("Saving topological map to file: %s", filename.c_str());
+
+        topological.save_to_file(filename);
+
+        ROS_INFO("Done");
+    }
+
 private:
+    void go_to_unexplored_place_callback(GoToUnexploredResult result) {
+        ROS_INFO("Callback %d", result);
+    }
+
     bool place_node_callback(s8_mapper::PlaceNode::Request& request, s8_mapper::PlaceNode::Response& response) {
         ROS_INFO("Placing node %lf %lf", request.x, request.y);
 
@@ -293,11 +321,28 @@ private:
     }
 };
 
+Mapper * mapper_ptr = NULL;
+
+void mySigintHandler(int sig) {
+    ROS_INFO("Quitting!");
+
+    if(mapper_ptr != NULL) {
+        mapper_ptr->save();
+    }
+
+    ros::shutdown();
+}
+
 int main(int argc, char **argv) {
     ros::init(argc, argv, NODE_NAME);
 
     Mapper mapper;
+    mapper_ptr = &mapper;
     ros::Rate loop_rate(HZ);
+
+    // Override the default ros sigint handler.
+    // This must be set after the first NodeHandle is created.
+    signal(SIGINT, mySigintHandler);
 
     while(ros::ok()) {
         mapper.update();

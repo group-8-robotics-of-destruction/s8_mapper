@@ -69,19 +69,20 @@ public:
 
 
         // Add map nodes
-
-        add_node(0, 0, TOPO_NODE_FREE, false, false, false, false);
+/*
+        add_node(0, 0, TOPO_NODE_FREE, true, true, false, false);
         add_node(1, 0, TOPO_NODE_FREE, false, false, false, false);
         add_node(1, 1, TOPO_NODE_FREE, false, false, false, false);
-        add_node(0.5, 1, TOPO_NODE_FREE, false, false, false, false);
+
+  //      add_node(0, 0.15, TOPO_NODE_FREE, true, true, true, false);
+//        add_node(0.5, 1, TOPO_NODE_FREE, false, false, false, false);
         add_node(0, 1, TOPO_NODE_FREE, false, false, false, false);
-        add_node(0, 1.5, TOPO_NODE_FREE, false, false, false, false);
+   //     add_node(0, 1.5, TOPO_NODE_FREE, false, false, false, false);
         add_node(0, 2, TOPO_NODE_FREE, false, false, false, false);
         add_node(0.5, 2, TOPO_NODE_FREE, false, false, false, false);
         add_node(2, 2, TOPO_NODE_FREE, false, false, false, false);
         add_node(2, 1, TOPO_NODE_FREE, false, false, false, false);
-        add_node(1, 1, TOPO_NODE_FREE, false, false, false, false);
-
+*/
         // const std::string home = ::getenv("HOME");
         // save_to_file(home + "/maps/map.json");
 
@@ -131,7 +132,7 @@ public:
             Node* tmp = new Node(x, y, value);
             add(last, tmp); 
             add_walls(x, y, isWallNorth, isWallWest, isWallSouth, isWallEast);
-	    ROS_INFO("INITIALIZING");
+        ROS_INFO("INITIALIZING");
         }
         else if (value == TOPO_NODE_FREE || value == TOPO_NODE_CURRENT){
             if (!does_node_exist(x, y, TOPO_NODE_FREE, isWallNorth, isWallWest, isWallSouth, isWallEast)){
@@ -252,6 +253,7 @@ public:
                         // Think that the problem lies in the traverse rather than the linking.
                         link(last, n);
                         set_as_last_node(n);
+                        add_walls(n->x, n->y, isWallNorth, isWallWest, isWallSouth, isWallEast);
                         return true;
                     }
                 }
@@ -262,8 +264,9 @@ public:
                             // TODO: link last and (*nodeIte).
                             // Think that the problem lies in the traverse rather than the linking.
                             if (n->neighbors.count(last)>0){
-                                //link(last, n);
+                                link(last, n);
                                 set_as_last_node(n);
+                                add_walls(n->x, n->y, isWallNorth, isWallWest, isWallSouth, isWallEast);
                                 return true;
                             }
                         } 
@@ -345,7 +348,6 @@ public:
         return true;
     }
 
-private:
     void traverse(Node *start, std::function<void(Node*,Node*)> func) {
         std::unordered_set<Node*> traversed_nodes;
         traversed_nodes.insert(start);
@@ -447,6 +449,23 @@ private:
         return path;
     }
 
+    Node * get_last() {
+        return last;
+    }
+
+    std::unordered_set<Node *> neighbors_in_heading(Node * node, double heading) {
+        std::unordered_set<Node *> neighbors;
+
+        for(auto n : node->neighbors) {
+            if(heading_between_nodes(node, n) == heading) {
+                neighbors.insert(n);
+            }
+        }
+
+        return neighbors;
+    }
+
+private:
     void init(double x, double y) {
         root = new Node(x, y, TOPO_NODE_FREE);
         last = root;
@@ -573,18 +592,6 @@ private:
 
     double heading_between_nodes(Node * from, double x_to, double y_to) {
         return angle_to_heading(angle_between_nodes(from, x_to, y_to));
-    }
-
-    std::unordered_set<Node *> neighbors_in_heading(Node * node, double heading) {
-        std::unordered_set<Node *> neighbors;
-
-        for(auto n : node->neighbors) {
-            if(heading_between_nodes(node, n) == heading) {
-                neighbors.insert(n);
-            }
-        }
-
-        return neighbors;
     }
 
     double euclidian_distance(double x_from, double x_to, double y_from, double y_to){

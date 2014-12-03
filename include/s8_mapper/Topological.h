@@ -340,6 +340,8 @@ public:
             }
         }
 
+        last = root;
+
         return true;
     }
 

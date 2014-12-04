@@ -312,6 +312,7 @@ public:
             pt_node.put("id", n->id);
             pt_node.put("x", n->x);
             pt_node.put("y", n->y);
+            pt_node.put("value", n->value);
             boost::property_tree::ptree pt_neighbors;
             for(Node * nn : n->neighbors) {
                 boost::property_tree::ptree pt_neighbor;

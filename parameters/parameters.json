@@ -1,5 +1,6 @@
 // Configuration options
 {
     // TOPOLOGICAL
-    "same_nodes_max_dist"       : "0.20"
+    "same_nodes_max_dist"       : "0.20",
+    "same_nodes_euclidean_dist" : "0.25"
 }

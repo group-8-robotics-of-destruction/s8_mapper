@@ -13,10 +13,11 @@
 
 const std::string CONFIG_DOC =  "/catkin_ws/src/s8_mapper/parameters/parameters.json";
 
-#define TOPO_NODE_FREE      1 << 1
-#define TOPO_NODE_WALL      1 << 2
-#define TOPO_NODE_OBJECT    1 << 3
-#define TOPO_NODE_CURRENT   1 << 4
+#define TOPO_NODE_FREE              1 << 1
+#define TOPO_NODE_WALL              1 << 2
+#define TOPO_NODE_OBJECT            1 << 3
+#define TOPO_NODE_CURRENT           1 << 4
+#define TOPO_NODE_OBJECT_VIEWER     1 << 5
 
 #define TOPO_EAST           -1 * M_PI / 4
 #define TOPO_NORTH          1 * M_PI / 4
@@ -44,8 +45,11 @@ public:
 private:
     Node *root;
     Node *last;
+    Node *viewer;
     std::unordered_set<Node*> nodes;
+    ros::ServiceClient* set_position_client;
     double same_nodes_max_dist;
+    double same_nodes_euclidean_dist;
 
 public:
     Topological() {
@@ -53,10 +57,11 @@ public:
         init(0, 0);
     }
 
-    Topological(double x, double y) {
+    Topological(double x, double y, ros::ServiceClient* position_client) {
         add_params();
         root = NULL;
         last = NULL;
+        set_position_client = position_client;
 
         //init(x, y);
 
@@ -69,26 +74,27 @@ public:
 
 
         // Add map nodes
-/*
-        add_node(0, 0, TOPO_NODE_FREE, true, true, false, false);
-        add_node(1, 0, TOPO_NODE_FREE, false, false, false, false);
-        add_node(1, 1, TOPO_NODE_FREE, false, false, false, false);
 
-  //      add_node(0, 0.15, TOPO_NODE_FREE, true, true, true, false);
-//        add_node(0.5, 1, TOPO_NODE_FREE, false, false, false, false);
-        add_node(0, 1, TOPO_NODE_FREE, false, false, false, false);
-   //     add_node(0, 1.5, TOPO_NODE_FREE, false, false, false, false);
-        add_node(0, 2, TOPO_NODE_FREE, false, false, false, false);
-        add_node(0.5, 2, TOPO_NODE_FREE, false, false, false, false);
-        add_node(2, 2, TOPO_NODE_FREE, false, false, false, false);
-        add_node(2, 1, TOPO_NODE_FREE, false, false, false, false);
-*/
+//         add_node(0, 0, TOPO_NODE_FREE, true, true, false, false);
+//         add_node(1, 0, TOPO_NODE_FREE, false, false, false, false);
+//         add_node(1, 1, TOPO_NODE_FREE, false, false, false, false);
+
+//   //      add_node(0, 0.15, TOPO_NODE_FREE, true, true, true, false);
+// //        add_node(0.5, 1, TOPO_NODE_FREE, false, false, false, false);
+//         add_node(0, 1, TOPO_NODE_FREE, false, false, false, false);
+//    //     add_node(0, 1.5, TOPO_NODE_FREE, false, false, false, false);
+//         add_node(0, 2, TOPO_NODE_FREE, false, false, false, false);
+//         add_node(0.5, 2, TOPO_NODE_FREE, false, false, false, false);
+//         add_node(2, 2, TOPO_NODE_FREE, false, false, false, false);
+//         add_node(2, 1, TOPO_NODE_FREE, false, true, true, true);
+
         // const std::string home = ::getenv("HOME");
         // save_to_file(home + "/maps/map.json");
 
-        // const std::string home = ::getenv("HOME");
-        // load_from_file(home + "/maps/map.json");
-
+        const std::string home = ::getenv("HOME");
+        load_from_file(home + "/maps/map_1417728019.json");
+        //add_node(0, 0, TOPO_NODE_FREE, false, true, false, false);
+        //add_node(1.5, 0, TOPO_NODE_FREE, false, false, false, false);
 
         // for(auto n : nodes) {
         //     std::string s = "Connections: ";
@@ -132,7 +138,7 @@ public:
             Node* tmp = new Node(x, y, value);
             add(last, tmp); 
             add_walls(x, y, isWallNorth, isWallWest, isWallSouth, isWallEast);
-        ROS_INFO("INITIALIZING");
+            ROS_INFO("INITIALIZING");
         }
         else if (value == TOPO_NODE_FREE || value == TOPO_NODE_CURRENT){
             if (!does_node_exist(x, y, TOPO_NODE_FREE, isWallNorth, isWallWest, isWallSouth, isWallEast)){
@@ -143,6 +149,17 @@ public:
                 ROS_INFO("Changing current node to last node");
                 add_walls(x, y, isWallNorth, isWallWest, isWallSouth, isWallEast);
             }
+        }
+        else if (value == TOPO_NODE_OBJECT_VIEWER){
+            Node* tmp = new Node(x, y, value);
+            viewer = tmp;
+            link(last, viewer);
+            nodes.insert(viewer);
+        }
+        else if (value == TOPO_NODE_OBJECT){
+            Node* tmp = new Node(x, y, value);
+            link(viewer, tmp);
+            nodes.insert(tmp);
         }
         else{
             Node* tmp = new Node(x, y, value);
@@ -185,7 +202,9 @@ public:
                 add_marker(visualization_msgs::Marker::SPHERE, n->x, n->y, 1, 1, 0.5, 0);
             } else if(is_object(n)){
                 add_marker(visualization_msgs::Marker::SPHERE, n->x, n->y, 1, 0, 0, 1);
-            } else {
+            } else if(is_object_viewer(n)){
+                add_marker(visualization_msgs::Marker::SPHERE, n->x, n->y, 1, 0, 0.5, 1);
+            } else{
                 add_marker(visualization_msgs::Marker::SPHERE, n->x, n->y, 1, 0, 1, 1);
             }
         }
@@ -254,19 +273,19 @@ public:
                         link(last, n);
                         set_as_last_node(n);
                         add_walls(n->x, n->y, isWallNorth, isWallWest, isWallSouth, isWallEast);
+                        update_position(n);
                         return true;
                     }
                 }
                 // Check based on euclidean distance if traveling between two known nodes.
-                else if (std::abs( euclidian_distance(x, last->x, y, last->y) - euclidian_distance(n->x, last->x, n->y, last->y)) < same_nodes_max_dist){
+                if (std::abs( euclidian_distance(x, last->x, y, last->y) - euclidian_distance(n->x, last->x, n->y, last->y)) < same_nodes_euclidean_dist){
                     if (heading_between_nodes(last, x, y) == heading_between_nodes(last, n)){
                         if ( check_properties(isWallNorth, neighbors_in_heading(n, TOPO_NORTH)) && check_properties(isWallWest, neighbors_in_heading(n, TOPO_WEST)) && check_properties(isWallSouth, neighbors_in_heading(n, TOPO_SOUTH)) && check_properties(isWallEast, neighbors_in_heading(n, TOPO_EAST))){                    
-                            // TODO: link last and (*nodeIte).
-                            // Think that the problem lies in the traverse rather than the linking.
                             if (n->neighbors.count(last)>0){
                                 link(last, n);
                                 set_as_last_node(n);
                                 add_walls(n->x, n->y, isWallNorth, isWallWest, isWallSouth, isWallEast);
+                                update_position(n);
                                 return true;
                             }
                         } 
@@ -293,8 +312,6 @@ public:
             pt_node.put("id", n->id);
             pt_node.put("x", n->x);
             pt_node.put("y", n->y);
-            pt_node.put("value", n->value);
-
             boost::property_tree::ptree pt_neighbors;
             for(Node * nn : n->neighbors) {
                 boost::property_tree::ptree pt_neighbor;
@@ -325,8 +342,13 @@ public:
             auto node_pt = v.second;
             Node *n = new Node(node_pt.get<double>("x"), node_pt.get<double>("y"), node_pt.get<int>("value"), node_pt.get<long>("id"));
             nodes.insert(n);
+            if (n->value == TOPO_NODE_CURRENT)
+                n->value = TOPO_NODE_FREE;
             if(n->id == root_id) {
                 root = n;
+                last = root;
+                last->value = TOPO_NODE_CURRENT;
+                //set_as_last_node(n);
             }
             ids[n->id] = n;
         }
@@ -508,14 +530,14 @@ private:
         if (to->value == TOPO_NODE_FREE || to->value == TOPO_NODE_CURRENT){
             double heading = heading_between_nodes(from, to);
             for (Node * n : from->neighbors){
-                if (n->value != TOPO_NODE_WALL && heading == heading_between_nodes(from, n)){
+                if (n->value != TOPO_NODE_WALL && n->value != TOPO_NODE_OBJECT && heading == heading_between_nodes(from, n)){
                     to->neighbors.insert(n);
                     n->neighbors.insert(to);
                 }
             }
             heading = heading_between_nodes(to, from);
             for (Node * n : to->neighbors){
-                if (n->value != TOPO_NODE_WALL && heading == heading_between_nodes(to, n)){
+                if (n->value != TOPO_NODE_WALL && n->value != TOPO_NODE_OBJECT && heading == heading_between_nodes(to, n)){
                     from->neighbors.insert(n);
                     n->neighbors.insert(from);
                 }
@@ -549,6 +571,9 @@ private:
     }
     bool is_object(Node *node) {
         return (node->value & TOPO_NODE_OBJECT) == TOPO_NODE_OBJECT;
+    }
+    bool is_object_viewer(Node *node) {
+        return (node->value & TOPO_NODE_OBJECT_VIEWER) == TOPO_NODE_OBJECT_VIEWER;
     }
     bool is_wall_node(Node* node){
         if (node == NULL)
@@ -608,6 +633,16 @@ private:
         boost::property_tree::read_json(home + CONFIG_DOC, pt);
         // CIRCLE
         same_nodes_max_dist = pt.get<double>("same_nodes_max_dist");
+        same_nodes_euclidean_dist = pt.get<double>("same_nodes_euclidean_dist");
+    }
+
+    void update_position(Node* node){
+        s8_pose::setPosition pn;
+        pn.request.x = node->x;
+        pn.request.y = node->y;
+        if(!set_position_client->call(pn)) {
+            ROS_FATAL("Failed to call set position node.");
+        }
     }
 };
 

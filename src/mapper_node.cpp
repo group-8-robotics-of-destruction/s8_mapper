@@ -3,6 +3,7 @@
 #include <s8_mapper/mapper_node.h>
 #include <s8_ir_sensors/ir_sensors_node.h>
 #include <s8_pose/pose_node.h>
+#include <s8_pose/setPosition.h>
 #include <s8_mapper/OccupancyGrid.h>
 #include <s8_mapper/Topological.h>
 #include <s8_mapper/Navigator.h>
@@ -22,7 +23,7 @@
 #define RENDER_HZ                   10
 
 #define PARAM_SIDE_LENGTH_NAME      "side_length"
-#define PARAM_SIDE_LENGTH_DEFAULT   1.0
+#define PARAM_SIDE_LENGTH_DEFAULT   10.0
 #define PARAM_RESOLUTION_NAME       "resolution"
 #define PARAM_RESOLUTION_DEFAULT    0.02
 #define PARAM_RENDER_NAME           "render"
@@ -46,6 +47,7 @@ using namespace s8::map;
 using namespace s8::utils::math;
 using s8::ir_sensors_node::is_valid_ir_value;
 using s8::pose_node::FrontFacing;
+using s8::pose_node::SERVICE_SET_POSITION;
 
 class Mapper : public s8::Node {
     double side_length;
@@ -83,6 +85,7 @@ class Mapper : public s8::Node {
     IRReadings ir_readings;
 
     ros::ServiceServer place_node_service;
+    ros::ServiceClient set_position_client;
 
     Navigator navigator;
 
@@ -103,12 +106,13 @@ public:
 
         occupancy_grid = OccupancyGrid(side_length, resolution, ir_robot_positions, robot_width, robot_length, &rviz_publisher);
 
+        set_position_client = nh.serviceClient<s8_pose::setPosition>(SERVICE_SET_POSITION, true);
         ir_sensors_subscriber = nh.subscribe<s8_msgs::IRDistances>(TOPIC_IR_DISTANCES, 1, &Mapper::ir_distances_callback, this);
         pose_subscriber = nh.subscribe<geometry_msgs::Pose2D>(TOPIC_POSE, 1, &Mapper::pose_callback, this);
 
         place_node_service = nh.advertiseService(SERVICE_PLACE_NODE, &Mapper::place_node_callback, this);
 
-        topological = Topological(0, 0);
+        topological = Topological(0, 0, &set_position_client);
 
         navigator = Navigator(&topological, std::bind(&Mapper::go_to_unexplored_place_callback, this, std::placeholders::_1));
 
@@ -211,8 +215,10 @@ private:
         bool isWallWest = is_wall_west(current_heading, request.isWallLeft, request.isWallForward, request.isWallRight);
         bool isWallSouth = is_wall_south(current_heading, request.isWallLeft, request.isWallForward, request.isWallRight);
         bool isWallEast = is_wall_east(current_heading, request.isWallLeft, request.isWallForward, request.isWallRight);
+        double related_x = std::cos(degrees_to_radians(robot_pose.rotation)-request.theta)*(request.dist);
+        double related_y = std::sin(degrees_to_radians(robot_pose.rotation)-request.theta)*(request.dist);
 
-        topological.add_node(request.x+robot_pose.position.x, request.y+robot_pose.position.y, request.value, isWallNorth, isWallWest,isWallSouth,isWallEast);
+        topological.add_node(robot_pose.position.x+related_x, robot_pose.position.y+related_y, request.value, isWallNorth, isWallWest,isWallSouth,isWallEast);
         return true;
     }
 

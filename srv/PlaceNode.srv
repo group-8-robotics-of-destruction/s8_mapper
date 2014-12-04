@@ -1,5 +1,7 @@
 float32 x
 float32 y
+float32 dist
+float32 theta
 int32 value
 bool isWallLeft
 bool isWallForward

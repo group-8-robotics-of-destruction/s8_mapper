@@ -189,19 +189,36 @@ public:
         std::unordered_set<MapCoordinate, MapCoordinateHash> result;
 
         if(!s8::utils::math::is_zero(p2.x - p1.x) && !s8::utils::math::is_zero(p2.y - p1.y)) {
-            double m = (p2.y - p1.y) / (p2.x - p1.x);
-            double b = p1.y - m * p1.x;
-            auto line = [m, b](double x) {
-                return x * m + b;
-            };
 
-            double start_x = p1.x < p2.x ? p1.x : p2.x;
-            double end_x = p1.x < p2.x ? p2.x : p1.x;
+            if (std::abs(p2.x-p1.x) >= std::abs(p2.y-p1.y)){
+                double start_x = p1.x < p2.x ? p1.x : p2.x;
+                double end_x = p1.x < p2.x ? p2.x : p1.x;
 
-            for(double x = start_x; x <= end_x; x += step_size) {
-                double y = line(x);
-                MapCoordinate mc = cartesian_to_grid(Coordinate(x, y));
-                result.insert(mc);
+                double m = (p2.y - p1.y) / (p2.x - p1.x);
+                double b = p1.y - m * p1.x;
+                auto line = [m, b](double x) {
+                    return x * m + b;
+                };
+                for(double x = start_x; x <= end_x; x += step_size) {
+                    double y = line(x);
+                    MapCoordinate mc = cartesian_to_grid(Coordinate(x, y));
+                    result.insert(mc);
+                }
+            }
+            else{
+                double start_y = p1.y < p2.y ? p1.y : p2.y;
+                double end_y = p1.y < p2.y ? p2.y : p1.y;
+
+                double m = (p2.x - p1.x) / (p2.y - p1.y);
+                double b = p1.x - m * p1.y;
+                auto line = [m, b](double y) {
+                    return y * m + b;
+                };
+                for(double y = start_y; y <= end_y; y += step_size) {
+                    double x = line(y);
+                    MapCoordinate mc = cartesian_to_grid(Coordinate(x, y));
+                    result.insert(mc);
+                }
             }
         } else {
             if(s8::utils::math::is_zero(p1.x - p2.x)) {

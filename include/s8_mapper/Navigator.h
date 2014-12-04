@@ -47,7 +47,7 @@ public:
 
         go_to_unexplored_place_callback(GoToUnexploredResult::FAILED);
 
-        exit(0);
+        //exit(0);
     }
 
     void update() {

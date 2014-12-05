@@ -19,6 +19,8 @@
   <build_depend>s8_pose</build_depend>
   <build_depend>s8_msgs</build_depend>
   <build_depend>message_generation</build_depend>
+  <build_depend>s8_turner</build_depend>
+  <build_depend>s8_motor_controller</build_depend>
 
   <run_depend>roscpp</run_depend>
   <run_depend>s8_common_node</run_depend>
@@ -28,5 +30,7 @@
   <run_depend>s8_pose</run_depend>
   <run_depend>s8_msgs</run_depend>
   <run_depend>message_runtime</run_depend>
+  <run_depend>s8_turner</run_depend>
+  <run_depend>s8_motor_controller</run_depend>
 
 </package>

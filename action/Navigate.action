@@ -1,0 +1,8 @@
+#goal
+int32 type
+---
+#result
+int32 reason
+---
+#feedback
+bool navigated

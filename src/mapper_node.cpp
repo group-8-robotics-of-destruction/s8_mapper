@@ -18,6 +18,8 @@
 #include <s8_msgs/IRDistances.h>
 #include <nav_msgs/OccupancyGrid.h>
 #include <s8_mapper/PlaceNode.h>
+#include <s8_mapper/NavigateAction.h>
+#include <actionlib/server/simple_action_server.h>
 
 #define HZ                          10
 #define RENDER_HZ                   10
@@ -42,6 +44,8 @@
 #define HEADING_SOUTH               3
 #define HEADING_EAST                4
 
+#define ACTION_NAVIGATE             "/s8/navigate"
+
 using namespace s8::mapper_node;
 using namespace s8::map;
 using namespace s8::utils::math;
@@ -55,7 +59,6 @@ class Mapper : public s8::Node {
     ros::Subscriber robot_position_subscriber;
     ros::Subscriber ir_sensors_subscriber;
     ros::Subscriber pose_subscriber;
-    int robot_rotation;
     double robot_x;
     double robot_y;
     double prev_robot_x;
@@ -88,9 +91,12 @@ class Mapper : public s8::Node {
     ros::ServiceClient set_position_client;
 
     Navigator navigator;
+    bool navigating;
+
+    actionlib::SimpleActionServer<s8_mapper::NavigateAction> navigate_action_server;
 
 public:
-    Mapper() : left_back_reading(TRESHOLD_VALUE), left_front_reading(TRESHOLD_VALUE), right_front_reading(TRESHOLD_VALUE), right_back_reading(TRESHOLD_VALUE), render_frame_skips(0), render_frames_to_skip((HZ / RENDER_HZ) - 1), robot_rotation(0), map_state(0), map_state_rendered(-1), robot_x(0.0), robot_y(0.0), prev_robot_x(0.0), prev_robot_y(0.0), robot_pose(0, 0, -90) {
+    Mapper() : navigating(false), left_back_reading(TRESHOLD_VALUE), left_front_reading(TRESHOLD_VALUE), right_front_reading(TRESHOLD_VALUE), right_back_reading(TRESHOLD_VALUE), render_frame_skips(0), render_frames_to_skip((HZ / RENDER_HZ) - 1), map_state(0), map_state_rendered(-1), robot_x(0.0), robot_y(0.0), prev_robot_x(0.0), prev_robot_y(0.0), robot_pose(0, 0, -90), navigator(&topological, std::bind(&Mapper::go_to_unexplored_place_callback, this, std::placeholders::_1)), navigate_action_server(nh, ACTION_NAVIGATE, boost::bind(&Mapper::action_execute_navigate_callback, this, _1), false) {
         init_params();
         print_params();
 
@@ -114,9 +120,7 @@ public:
 
         topological = Topological(0, 0, &set_position_client);
 
-        navigator = Navigator(&topological, std::bind(&Mapper::go_to_unexplored_place_callback, this, std::placeholders::_1));
-
-        navigator.go_to_unexplored_place();
+        navigate_action_server.start();
     }
 
     void update() {
@@ -126,6 +130,8 @@ public:
         ir_world_positions.right_back = occupancy_grid.robot_coord_system_to_world_coord_system(ir_robot_positions.right_back);
 
         occupancy_grid.update(ir_readings, ir_world_positions, robot_pose);
+
+        navigator.update(robot_pose.position.x, robot_pose.position.y, robot_pose.rotation, ir_readings);
 
         if(should_render() && topological.is_root_initialized()) {
             visualization_msgs::MarkerArray markerArray;
@@ -202,8 +208,27 @@ public:
     }
 
 private:
+    void action_execute_navigate_callback(const s8_mapper::NavigateGoalConstPtr & navigate_goal) {
+        ROS_INFO("Starting navigating");
+        navigator.go_to_unexplored_place();
+
+        navigating = true;
+        ros::Rate rate(10);
+        int ticks = 0;
+        while(ros::ok() && navigating) {
+            rate.sleep();
+            ros::spinOnce();
+        }
+
+        s8_mapper::NavigateResult navigate_action_result;
+        navigate_action_result.reason = 0;
+        ROS_INFO("PREEMPTED: Navigate action succeded.");
+        navigate_action_server.setSucceeded(navigate_action_result);
+    }
+
     void go_to_unexplored_place_callback(GoToUnexploredResult result) {
         ROS_INFO("Callback %d", result);
+        navigating = false;
     }
 
     bool place_node_callback(s8_mapper::PlaceNode::Request& request, s8_mapper::PlaceNode::Response& response) {

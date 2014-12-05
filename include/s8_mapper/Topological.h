@@ -477,7 +477,14 @@ public:
             current = previous[current];
         }
 
-        return path;
+        std::vector<Node*> reversed_path;
+
+        for(int i = path.size() - 1; i >= 0; i--) {
+            ROS_INFO("%d", i);
+            reversed_path.push_back(path[i]);
+        }
+
+        return reversed_path;
     }
 
     Node * get_last() {
@@ -537,7 +544,6 @@ public:
         return value == TOPO_NODE_OBJECT_VIEWER;
     }
 
-private:
     void init(double x, double y) {
         root = new Node(x, y, TOPO_NODE_FREE);
         last = root;

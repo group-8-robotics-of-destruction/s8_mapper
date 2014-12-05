@@ -91,9 +91,14 @@ public:
         // const std::string home = ::getenv("HOME");
         // save_to_file(home + "/maps/map.json");
 
-        const std::string home = ::getenv("HOME");
-        load_from_file(home + "/maps/map.json");
-        add_node(0.1, 0.1, TOPO_NODE_FREE, true, false, true, false);
+        try {
+            const std::string home = ::getenv("HOME");
+            load_from_file(home + "/maps/map.json"); 
+        } catch(std::exception & e) {
+            ROS_WARN("Couldn't load map.");
+        }
+
+        //add_node(0.0, 0.0, TOPO_NODE_FREE, false, true, false, false);
         //add_node(1.5, 0, TOPO_NODE_FREE, false, false, false, false);
 
         // for(auto n : nodes) {
@@ -133,22 +138,24 @@ public:
         }
     }
 
-    void add_node(double x, double y, int value, bool isWallNorth, bool isWallWest, bool isWallSouth, bool isWallEast) {
+    //Will return false if node was merged (been here before.) Otherwise true.
+    bool add_node(double x, double y, int value, bool isWallNorth, bool isWallWest, bool isWallSouth, bool isWallEast) {
         if (!is_root_initialized()){
             Node* tmp = new Node(x, y, value);
             add(last, tmp); 
-            add_walls(x, y, isWallNorth, isWallWest, isWallSouth, isWallEast);
+            add_walls(x, y, isWallNorth, true, isWallSouth, isWallEast);
             ROS_INFO("INITIALIZING");
         }
         else if (is_free(value)){
             if (!does_node_exist(x, y, TOPO_NODE_FREE, isWallNorth, isWallWest, isWallSouth, isWallEast)){
-                ROS_INFO("helllllllo");
                 Node* tmp = new Node(x, y, value);
                 add(last, tmp);
 
                 set_as_last_node(tmp);
                 ROS_INFO("Changing current node to last node");
                 add_walls(x, y, isWallNorth, isWallWest, isWallSouth, isWallEast);
+            } else {
+                return false;
             }
         }
         else if (value == TOPO_NODE_OBJECT_VIEWER){
@@ -166,6 +173,8 @@ public:
             Node* tmp = new Node(x, y, value);
             add(last, tmp);            
         }
+
+        return true;
     }
 
     void render(std::vector<visualization_msgs::Marker> & markers) {

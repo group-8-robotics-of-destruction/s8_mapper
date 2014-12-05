@@ -42,15 +42,15 @@ public:
             return false;
         };
 
-        auto path = topological->dijkstra(topological->get_last(), is_unexplored_node);
+        // auto path = topological->dijkstra(topological->get_last(), is_unexplored_node);
 
-        ROS_INFO("PATH");
+        // ROS_INFO("PATH");
 
-        for(auto node : path) {
-            ROS_INFO("(%.2lf, %.2lf)", node->x, node->y);
-        }
+        // for(auto node : path) {
+        //     ROS_INFO("(%.2lf, %.2lf)", node->x, node->y);
+        // }
 
-        go_to_unexplored_place_callback(GoToUnexploredResult::FAILED);
+        //go_to_unexplored_place_callback(GoToUnexploredResult::FAILED);
 
         // exit(0);
     }

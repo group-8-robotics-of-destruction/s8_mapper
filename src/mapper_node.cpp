@@ -218,7 +218,7 @@ private:
         double related_x = std::cos(degrees_to_radians(robot_pose.rotation)-request.theta)*(request.dist);
         double related_y = std::sin(degrees_to_radians(robot_pose.rotation)-request.theta)*(request.dist);
 
-        topological.add_node(robot_pose.position.x+related_x, robot_pose.position.y+related_y, request.value, isWallNorth, isWallWest,isWallSouth,isWallEast);
+        response.placed = topological.add_node(robot_pose.position.x+related_x, robot_pose.position.y+related_y, request.value, isWallNorth, isWallWest,isWallSouth,isWallEast);
         return true;
     }
 

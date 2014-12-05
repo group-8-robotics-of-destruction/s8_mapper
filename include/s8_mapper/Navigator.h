@@ -95,29 +95,43 @@ public:
     
 
         if(going_to_unexplored_place) {
+            double heading = 0;
+
             auto current = path[node_index];
 
             if(path.size() == node_index + 1) {
                 //At target. Success.
                 ROS_INFO("At target");
-                return;
+
+                std::vector<double> headings = { TOPO_EAST, TOPO_NORTH, TOPO_WEST, TOPO_SOUTH };
+
+                for(double h : headings) {
+                    if(topological->neighbors_in_heading(current, h).size() == 0) {
+                        heading = h;
+                        break;
+                    }
+                }
+
+                if(s8::utils::math::is_zero(heading)) {
+                    ROS_INFO("Nothing to explore left.");
+                    exit(0);                    
+                }
+            } else {
+                auto next = path[node_index + 1];
+                ROS_INFO("(%lf, %lf) -> (%lf %lf)", current->x, current->y, next->x, next->y);
+                heading = topological->heading_between_nodes(current, next);;
             }
 
-            auto next = path[node_index + 1];
-
-            ROS_INFO("(%lf, %lf) -> (%lf %lf)", current->x, current->y, next->x, next->y);
-
-            double heading = topological->heading_between_nodes(current, next);
+            
             double robot_heading = topological->angle_to_heading(robot_rotation);
-
 
             ROS_INFO("Heading: %lf, robot_heading: %lf", heading, robot_heading);
             if(!s8::utils::math::is_equal(heading, robot_heading)) {
                 ROS_INFO("Wrong heading.");
-                if(s8::utils::math::is_equal(robot_heading - heading, M_PI / 2) || s8::utils::math::is_equal(robot_heading - heading, 3 * M_PI / 2)) {
-                    turn(-TURN_DEGREES_90);
-                } else {
+                if(s8::utils::math::is_equal(robot_heading - heading, -M_PI / 2) || s8::utils::math::is_equal(robot_heading - heading, 3 * M_PI / 2)) {
                     turn(TURN_DEGREES_90);
+                } else {
+                    turn(-TURN_DEGREES_90);
                 }
             } else {
                 ROS_INFO("Right heading. Will succeed.");

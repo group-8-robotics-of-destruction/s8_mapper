@@ -92,8 +92,8 @@ public:
         // save_to_file(home + "/maps/map.json");
 
         const std::string home = ::getenv("HOME");
-        load_from_file(home + "/maps/map_1417728019.json");
-        //add_node(0, 0, TOPO_NODE_FREE, false, true, false, false);
+        load_from_file(home + "/maps/map.json");
+        add_node(0.1, 0.1, TOPO_NODE_FREE, true, false, true, false);
         //add_node(1.5, 0, TOPO_NODE_FREE, false, false, false, false);
 
         // for(auto n : nodes) {
@@ -140,8 +140,9 @@ public:
             add_walls(x, y, isWallNorth, isWallWest, isWallSouth, isWallEast);
             ROS_INFO("INITIALIZING");
         }
-        else if (value == TOPO_NODE_FREE || value == TOPO_NODE_CURRENT){
+        else if (is_free(value)){
             if (!does_node_exist(x, y, TOPO_NODE_FREE, isWallNorth, isWallWest, isWallSouth, isWallEast)){
+                ROS_INFO("helllllllo");
                 Node* tmp = new Node(x, y, value);
                 add(last, tmp);
 
@@ -198,14 +199,14 @@ public:
         for(Node *n : nodes) {
             if(is_wall(n)) {
                 add_marker(visualization_msgs::Marker::SPHERE, n->x, n->y, 1, 1, 0, 0);
+            } else if(is_current(n)) {
+                add_marker(visualization_msgs::Marker::SPHERE, n->x, n->y, 1, 0, 1, 1);
             } else if(is_free(n)){
                 add_marker(visualization_msgs::Marker::SPHERE, n->x, n->y, 1, 1, 0.5, 0);
             } else if(is_object(n)){
                 add_marker(visualization_msgs::Marker::SPHERE, n->x, n->y, 1, 0, 0, 1);
             } else if(is_object_viewer(n)){
                 add_marker(visualization_msgs::Marker::SPHERE, n->x, n->y, 1, 0, 0.5, 1);
-            } else{
-                add_marker(visualization_msgs::Marker::SPHERE, n->x, n->y, 1, 0, 1, 1);
             }
         }
 
@@ -262,8 +263,7 @@ public:
         for (auto n : nodes){
             // loop through old vector and load into new vector.
             // Check for type and position.
-            if (n->value == TOPO_NODE_FREE || n->value == TOPO_NODE_CURRENT){
-
+            if (is_free(n->value)){
                 // Check only based on distance in world coordinates
                 if (std::abs(n->x - x) < same_nodes_max_dist && std::abs(n->y - y) < same_nodes_max_dist){
                     if ( check_properties(isWallNorth, neighbors_in_heading(n, TOPO_NORTH)) && check_properties(isWallWest, neighbors_in_heading(n, TOPO_WEST)) && check_properties(isWallSouth, neighbors_in_heading(n, TOPO_SOUTH)) && check_properties(isWallEast, neighbors_in_heading(n, TOPO_EAST))){                    
@@ -343,7 +343,7 @@ public:
             auto node_pt = v.second;
             Node *n = new Node(node_pt.get<double>("x"), node_pt.get<double>("y"), node_pt.get<int>("value"), node_pt.get<long>("id"));
             nodes.insert(n);
-            if (n->value == TOPO_NODE_CURRENT)
+            if (is_current(n->value))
                 n->value = TOPO_NODE_FREE;
             if(n->id == root_id) {
                 root = n;
@@ -387,7 +387,6 @@ public:
 
         traversed_nodes.insert(next);
 
-        //ROS_INFO("x: %lf, y: %lf", current->x, current->y);
         func(current, next);
 
         for(Node * n : next->neighbors) {
@@ -488,6 +487,47 @@ public:
         return neighbors;
     }
 
+
+    bool is_wall(Node *node) {
+        return is_wall(node->value);
+    }
+    bool is_free(Node *node) {
+        return is_free(node->value);
+    }
+    bool is_current(Node *node) {
+        return is_current(node->value);
+    }
+    bool is_object(Node *node) {
+        return is_object(node->value);
+    }
+    bool is_object_viewer(Node *node) {
+        return is_object_viewer(node->value);
+    }
+    bool is_wall_node(Node* node){
+        if (node == NULL)
+            return false;
+        else if (node->value == TOPO_NODE_WALL)
+            return true;
+        else 
+            return false;
+    }
+
+    bool is_wall(int value) {
+        return value == TOPO_NODE_WALL;
+    }
+    bool is_free(int value) {
+        return value == TOPO_NODE_FREE || value == TOPO_NODE_CURRENT;
+    }
+    bool is_current(int value) {
+        return value == TOPO_NODE_CURRENT;
+    }
+    bool is_object(int value) {
+        return value == TOPO_NODE_OBJECT;
+    }
+    bool is_object_viewer(int value) {
+        return value == TOPO_NODE_OBJECT_VIEWER;
+    }
+
 private:
     void init(double x, double y) {
         root = new Node(x, y, TOPO_NODE_FREE);
@@ -528,7 +568,7 @@ private:
         // }
 
         // Loop through neighbours and add connections to the new node.
-        if (to->value == TOPO_NODE_FREE || to->value == TOPO_NODE_CURRENT){
+        if (is_free(to->value)){
             double heading = heading_between_nodes(from, to);
             for (Node * n : from->neighbors){
                 if (n->value != TOPO_NODE_WALL && n->value != TOPO_NODE_OBJECT && heading == heading_between_nodes(from, n)){
@@ -562,27 +602,6 @@ private:
         if (isWallEast == true){
             add_node(x+0.2, y, TOPO_NODE_WALL, false,false,false,false);
         }
-    }
-
-    bool is_wall(Node *node) {
-        return (node->value & TOPO_NODE_WALL) == TOPO_NODE_WALL;
-    }
-    bool is_free(Node *node) {
-        return (node->value & TOPO_NODE_FREE) == TOPO_NODE_FREE;
-    }
-    bool is_object(Node *node) {
-        return (node->value & TOPO_NODE_OBJECT) == TOPO_NODE_OBJECT;
-    }
-    bool is_object_viewer(Node *node) {
-        return (node->value & TOPO_NODE_OBJECT_VIEWER) == TOPO_NODE_OBJECT_VIEWER;
-    }
-    bool is_wall_node(Node* node){
-        if (node == NULL)
-            return false;
-        else if (node->value == TOPO_NODE_WALL)
-            return true;
-        else 
-            return false;
     }
 
     double angle_to_heading(double angle) {

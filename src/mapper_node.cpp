@@ -116,7 +116,7 @@ public:
 
         navigator = Navigator(&topological, std::bind(&Mapper::go_to_unexplored_place_callback, this, std::placeholders::_1));
 
-        //navigator.go_to_unexplored_place();
+        navigator.go_to_unexplored_place();
     }
 
     void update() {

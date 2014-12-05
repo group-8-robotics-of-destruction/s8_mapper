@@ -25,11 +25,16 @@ public:
     void go_to_unexplored_place() {
         going_to_unexplored_place = true;
 
-        auto has_no_connections_in_heading = [this](Topological::Node * node) {
+        auto is_unexplored_node = [this](Topological::Node * node) {
+            if(!topological->is_free(node)) {
+                return false;
+            }
+
             std::vector<double> headings = { TOPO_EAST, TOPO_NORTH, TOPO_WEST, TOPO_SOUTH };
 
-            for(auto heading : headings) {
-                if(topological->neighbors_in_heading(node, TOPO_EAST).size() == 0) {
+            for(double heading : headings) {
+                if(topological->neighbors_in_heading(node, heading).size() == 0) {
+                    ROS_INFO("heading: %lf", heading);
                     return true;
                 }
             }
@@ -37,7 +42,7 @@ public:
             return false;
         };
 
-        auto path = topological->dijkstra(topological->get_last(), has_no_connections_in_heading);
+        auto path = topological->dijkstra(topological->get_last(), is_unexplored_node);
 
         ROS_INFO("PATH");
 
@@ -47,7 +52,7 @@ public:
 
         go_to_unexplored_place_callback(GoToUnexploredResult::FAILED);
 
-        //exit(0);
+        // exit(0);
     }
 
     void update() {

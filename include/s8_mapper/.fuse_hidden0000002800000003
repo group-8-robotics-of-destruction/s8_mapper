@@ -583,7 +583,7 @@ public:
         // }
 
         // Loop through neighbours and add connections to the new node.
-        if (is_free(to->value) || is_object_viewer(to->value)){
+        if (is_free(to->value)){
             double heading = heading_between_nodes(from, to);
             for (Node * n : from->neighbors){
                 if (n->value != TOPO_NODE_WALL && n->value != TOPO_NODE_OBJECT && heading == heading_between_nodes(from, n)){

@@ -210,7 +210,7 @@ public:
 private:
     void action_execute_navigate_callback(const s8_mapper::NavigateGoalConstPtr & navigate_goal) {
         ROS_INFO("Starting navigating");
-        navigator.go_to_unexplored_place();
+        navigator.go_to_object_place();
 
         navigating = true;
         ros::Rate rate(10);

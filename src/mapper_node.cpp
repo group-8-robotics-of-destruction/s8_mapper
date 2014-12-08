@@ -20,6 +20,8 @@
 #include <s8_mapper/PlaceNode.h>
 #include <s8_mapper/NavigateAction.h>
 #include <actionlib/server/simple_action_server.h>
+#include <s8_motor_controller/motor_controller_node.h>
+#include <geometry_msgs/Twist.h>
 
 #define HZ                          10
 #define RENDER_HZ                   10
@@ -52,6 +54,7 @@ using namespace s8::utils::math;
 using s8::ir_sensors_node::is_valid_ir_value;
 using s8::pose_node::FrontFacing;
 using s8::pose_node::SERVICE_SET_POSITION;
+using s8::motor_controller_node::TOPIC_TWIST;
 
 class Mapper : public s8::Node {
     double side_length;
@@ -95,8 +98,10 @@ class Mapper : public s8::Node {
 
     actionlib::SimpleActionServer<s8_mapper::NavigateAction> navigate_action_server;
 
+    ros::Publisher twist_publisher;
+
 public:
-    Mapper() : navigating(false), left_back_reading(TRESHOLD_VALUE), left_front_reading(TRESHOLD_VALUE), right_front_reading(TRESHOLD_VALUE), right_back_reading(TRESHOLD_VALUE), render_frame_skips(0), render_frames_to_skip((HZ / RENDER_HZ) - 1), map_state(0), map_state_rendered(-1), robot_x(0.0), robot_y(0.0), prev_robot_x(0.0), prev_robot_y(0.0), robot_pose(0, 0, -90), navigator(&topological, std::bind(&Mapper::go_to_unexplored_place_callback, this, std::placeholders::_1)), navigate_action_server(nh, ACTION_NAVIGATE, boost::bind(&Mapper::action_execute_navigate_callback, this, _1), false) {
+    Mapper() : navigating(false), left_back_reading(TRESHOLD_VALUE), left_front_reading(TRESHOLD_VALUE), right_front_reading(TRESHOLD_VALUE), right_back_reading(TRESHOLD_VALUE), render_frame_skips(0), render_frames_to_skip((HZ / RENDER_HZ) - 1), map_state(0), map_state_rendered(-1), robot_x(0.0), robot_y(0.0), prev_robot_x(0.0), prev_robot_y(0.0), robot_pose(0, 0, -90), navigator(&topological, std::bind(&Mapper::go_to_unexplored_place_callback, this, std::placeholders::_1), &twist_publisher, &robot_pose), navigate_action_server(nh, ACTION_NAVIGATE, boost::bind(&Mapper::action_execute_navigate_callback, this, _1), false) {
         init_params();
         print_params();
 
@@ -118,6 +123,8 @@ public:
 
         place_node_service = nh.advertiseService(SERVICE_PLACE_NODE, &Mapper::place_node_callback, this);
 
+        twist_publisher = nh.advertise<geometry_msgs::Twist>(TOPIC_TWIST, 1);
+
         topological = Topological(0, 0, &set_position_client);
 
         navigate_action_server.start();
@@ -131,7 +138,7 @@ public:
 
         occupancy_grid.update(ir_readings, ir_world_positions, robot_pose);
 
-        navigator.update(robot_pose.position.x, robot_pose.position.y, robot_pose.rotation, ir_readings);
+        navigator.update(ir_readings);
 
         if(should_render() && topological.is_root_initialized()) {
             visualization_msgs::MarkerArray markerArray;
@@ -248,6 +255,8 @@ private:
         bool isWallEast = is_wall_east(current_heading, request.isWallLeft, request.isWallForward, request.isWallRight);
         double related_x = std::cos(degrees_to_radians(robot_pose.rotation)-request.theta)*(request.dist);
         double related_y = std::sin(degrees_to_radians(robot_pose.rotation)-request.theta)*(request.dist);
+
+        ROS_INFO("Node added at: %lf %lf. robot_pose: %lf %lf", robot_pose.position.x+related_x, robot_pose.position.y+related_y, robot_pose.position.x, robot_pose.position.y);
 
         response.placed = topological.add_node(robot_pose.position.x+related_x, robot_pose.position.y+related_y, request.value, request.isTurn, isWallNorth, isWallWest,isWallSouth,isWallEast);
         return true;

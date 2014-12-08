@@ -3,7 +3,7 @@ set(CMAKE_CXX_FLAGS "-std=c++0x ${CMAKE_CXX_FLAGS}")
 cmake_minimum_required(VERSION 2.8.3)
 project(s8_mapper)
 
-find_package(catkin REQUIRED COMPONENTS roscpp s8_common_node s8_ir_sensors s8_pose s8_msgs message_generation s8_turner s8_motor_controller)
+find_package(catkin REQUIRED COMPONENTS roscpp s8_common_node s8_ir_sensors s8_pose s8_msgs message_generation s8_turner s8_motor_controller geometry_msgs)
 
 add_service_files(
   FILES
@@ -22,7 +22,7 @@ generate_messages(
 
 catkin_package(
   DEPENDS
-  CATKIN_DEPENDS roscpp s8_common_node s8_ir_sensors s8_pose s8_msgs message_runtime s8_turner s8_motor_controller
+  CATKIN_DEPENDS roscpp s8_common_node s8_ir_sensors s8_pose s8_msgs message_runtime s8_turner s8_motor_controller geometry_msgs
   INCLUDE_DIRS include
 )
 

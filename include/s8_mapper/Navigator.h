@@ -2,10 +2,12 @@
 #define __NAVIGATOR_H
 
 #include <actionlib/client/simple_action_client.h>
+#include <s8_mapper/mapper_node.h>
 #include <s8_mapper/Topological.h>
 #include <s8_turner/TurnAction.h>
 #include <s8_motor_controller/StopAction.h>
 #include <s8_turner/turner_node.h>
+#include <geometry_msgs/Twist.h>
 
 const double ACTION_STOP_TIMEOUT =                         30.0;
 const double ACTION_TURN_TIMEOUT =                         30.0;
@@ -24,6 +26,7 @@ enum GoToUnexploredResult {
 typedef s8::turner_node::Direction RotateDirection;
 
 class Navigator {
+    ros::Publisher *twist_publisher;
     actionlib::SimpleActionClient<s8_turner::TurnAction> turn_action;
     actionlib::SimpleActionClient<s8_motor_controller::StopAction> stop_action;
     Topological *topological;
@@ -34,9 +37,11 @@ class Navigator {
     std::vector<Topological::Node*> path;
     int node_index;
     bool navigating;
+    double go_straight_velocity;
+    s8::mapper_node::RobotPose *robot_pose;
 
 public:
-    Navigator(Topological * topological, std::function<void(GoToUnexploredResult)> go_to_unexplored_place_callback) : going_to_object_place(false), navigating(false), topological(topological), go_to_unexplored_place_callback(go_to_unexplored_place_callback), going_to_unexplored_place(false), turn_action(ACTION_TURN, true), stop_action(ACTION_STOP, true) {
+    Navigator(Topological * topological, std::function<void(GoToUnexploredResult)> go_to_unexplored_place_callback, ros::Publisher *twist_publisher, s8::mapper_node::RobotPose *robot_pose) : going_to_object_place(false), navigating(false), topological(topological), go_to_unexplored_place_callback(go_to_unexplored_place_callback), going_to_unexplored_place(false), turn_action(ACTION_TURN, true), stop_action(ACTION_STOP, true), twist_publisher(twist_publisher), go_straight_velocity(0.15), robot_pose(robot_pose) {
         ROS_INFO("Waiting for turn action server...");
         turn_action.waitForServer();
         ROS_INFO("Connected to turn action server!");
@@ -67,7 +72,7 @@ public:
 
         path = topological->dijkstra(topological->get_last(), is_unexplored_node);
 
-        ROS_INFO("PATH %d", path.size());
+        ROS_INFO("PATH");
 
         if(path.size() == 0) {
             //Nothing to explore.
@@ -123,25 +128,25 @@ public:
         navigating = true;
     }
 
-    void update(double robot_x, double robot_y, double robot_rotation, IRReadings ir_readings) {
+    void update(IRReadings ir_readings) {
         if(!navigating) {
             return;
         }
 
-        ROS_INFO("robot_rotation: %d", (int)robot_rotation);
+        ROS_INFO("robot_rotation: %d", (int)robot_pose->rotation);
 
         ir_readings = ir_readings;
-        robot_rotation = ((int)robot_rotation % 360);
+        double robot_rotation = ((int)robot_pose->rotation % 360);
 
         robot_rotation = s8::utils::math::degrees_to_radians(robot_rotation);
 
         if(robot_rotation > M_PI) {
             robot_rotation -= 2 * M_PI;
         }
-    
 
         if(going_to_unexplored_place || going_to_object_place) {
             double heading = 0;
+            Topological::Node *next = NULL;
 
             auto current = path[node_index];
 
@@ -156,7 +161,6 @@ public:
                 std::vector<double> headings = { TOPO_EAST, TOPO_NORTH, TOPO_WEST, TOPO_SOUTH };
 
                 for(double h : headings) {
-                    ROS_INFO("ouch");
                     if(topological->neighbors_in_heading(current, h).size() == 0) {
                         heading = h;
                         break;
@@ -170,11 +174,10 @@ public:
                     //exit(0);      x              
                 }
             } else {
-                auto next = path[node_index + 1];
+                next = path[node_index + 1];
                 ROS_INFO("(%lf, %lf) -> (%lf %lf)", current->x, current->y, next->x, next->y);
                 heading = topological->heading_between_nodes(current, next);;
             }
-
             
             double robot_heading = topological->angle_to_heading(robot_rotation);
 
@@ -187,11 +190,51 @@ public:
                     turn(-TURN_DEGREES_90);
                 }
             } else {
-                ROS_INFO("Right heading. Will succeed.");
-                go_to_unexplored_place_callback(GoToUnexploredResult::SUCCEEDED);
-                navigating = false;
+                ROS_INFO("Right heading");
+
+                //Check if node has walls to stop to.
+                if(next != NULL && !node_has_wall_in_heading(next, heading)) {
+                    ROS_INFO("In-between node. Will go straight for it.");
+
+                    double distance = topological->euclidian_distance(current->x, next->x, current->y, next->y);
+
+                    //Doesnt have walls. Need to do custom traverse.
+                    go_straight([&distance, &current, &robot_pose, this](){
+                        double traveled_distance = topological->euclidian_distance(current->x, robot_pose->position.x, current->y, robot_pose->position.y);
+                        ROS_INFO("Progress: %lf", (std::abs(distance - traveled_distance) / distance));
+                        if((std::abs(distance - traveled_distance) / distance) < 0.1) {
+                            return false;
+                        }
+
+                        return true;
+                    });
+
+                    ROS_INFO("Done going straight.");
+                    topological->set_as_last_node(next);
+
+                    if(going_to_unexplored_place) {
+                        go_to_unexplored_place();
+                    } else {
+                        go_to_object_place();
+                    }
+                } else {
+                    ROS_INFO("Will succeed.");
+                    go_to_unexplored_place_callback(GoToUnexploredResult::SUCCEEDED);
+                    navigating = false;                    
+                }
             }
         }
+    }
+
+    bool node_has_wall_in_heading(Topological::Node *node, double heading) {
+        auto nodes = topological->neighbors_in_heading(node, heading);
+        for(auto n : nodes) {
+            if(topological->is_wall(n)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     void turn(int degrees) {
@@ -230,6 +273,48 @@ public:
                 ROS_INFO("Stop action finished with unknown state: %s", state.toString().c_str());
             }
         } else {
+        }
+    }
+
+    void go_straight(std::function<bool()> condition) {
+        geometry_msgs::Twist twist;
+        twist.linear.x = go_straight_velocity;
+        int heading = get_current_heading();
+
+        bool should_stop_go_straight = false; //TODO: Remove?
+
+        ros::Rate loop_rate(25);
+        while(condition() && ros::ok() && !should_stop_go_straight) {
+            ros::spinOnce();
+            int rotation = (int)robot_pose->rotation % 360;
+            if (rotation < 0){
+                rotation += 360;
+            }
+
+            int diff = heading - rotation;
+            if (diff <= -45 )
+                diff += 360;
+            double alpha = 1.0/45.0;
+            twist.angular.z = alpha*(double)diff;
+            twist_publisher->publish(twist);
+            loop_rate.sleep();
+        }
+    }
+
+    int get_current_heading(){
+        int rotation = robot_pose->rotation;
+
+        if (rotation >= 315 || rotation < 45){
+            return 0;
+        }
+        else if (rotation >= 45 && rotation < 135){
+            return 90;
+        }
+        else if (rotation >= 135 && rotation < 225){
+            return 180;
+        }
+        else{
+            return 270;
         }
     }
 

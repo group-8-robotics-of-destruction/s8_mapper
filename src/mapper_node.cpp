@@ -139,7 +139,6 @@ public:
             occupancy_grid.render();
             render_robot(markerArray.markers);
             topological.render(markerArray.markers);
-
             markers_publisher.publish(markerArray);
         }
     }
@@ -210,7 +209,7 @@ public:
 private:
     void action_execute_navigate_callback(const s8_mapper::NavigateGoalConstPtr & navigate_goal) {
         ROS_INFO("Starting navigating");
-        navigator.go_to_object_place();
+        navigator.go_to_unexplored_place();
 
         navigating = true;
         ros::Rate rate(10);
@@ -243,7 +242,7 @@ private:
         double related_x = std::cos(degrees_to_radians(robot_pose.rotation)-request.theta)*(request.dist);
         double related_y = std::sin(degrees_to_radians(robot_pose.rotation)-request.theta)*(request.dist);
 
-        response.placed = topological.add_node(robot_pose.position.x+related_x, robot_pose.position.y+related_y, request.value, isWallNorth, isWallWest,isWallSouth,isWallEast);
+        response.placed = topological.add_node(robot_pose.position.x+related_x, robot_pose.position.y+related_y, request.value, request.isTurn, isWallNorth, isWallWest,isWallSouth,isWallEast);
         return true;
     }
 

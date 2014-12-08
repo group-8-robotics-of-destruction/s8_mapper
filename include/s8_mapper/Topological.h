@@ -46,6 +46,8 @@ private:
     Node *root;
     Node *last;
     Node *viewer;
+    Node *lastOutOfRange;
+    std::unordered_set<Node*> out_of_range;
     std::unordered_set<Node*> nodes;
     ros::ServiceClient* set_position_client;
     double same_nodes_max_dist;
@@ -61,6 +63,7 @@ public:
         add_params();
         root = NULL;
         last = NULL;
+        lastOutOfRange = NULL;
         set_position_client = position_client;
 
         //init(x, y);
@@ -98,9 +101,9 @@ public:
             ROS_WARN("Couldn't load map.");
         }
 
-        //add_node(0.0, 0.0, TOPO_NODE_FREE, false, true, false, false);
-        //add_node(1.5, 0, TOPO_NODE_FREE, false, false, false, false);
-
+        // add_node(0.0, 0.0, TOPO_NODE_FREE,true, false, true, false, false);
+        // add_node(1.5, 0, TOPO_NODE_FREE, true,false, false, false, false);
+        // add_node(1.5, 1.5, TOPO_NODE_FREE, true,false, false, false, false);
         // for(auto n : nodes) {
         //     std::string s = "Connections: ";
         //     for(auto nn : n->neighbors) {
@@ -139,13 +142,23 @@ public:
     }
 
     //Will return false if node was merged (been here before.) Otherwise true.
-    bool add_node(double x, double y, int value, bool isWallNorth, bool isWallWest, bool isWallSouth, bool isWallEast) {
+    bool add_node(double x, double y, int value, bool isTurn, bool isWallNorth, bool isWallWest, bool isWallSouth, bool isWallEast) {
         if (!is_root_initialized()){
             Node* tmp = new Node(x, y, value);
             add(last, tmp); 
             add_walls(x, y, isWallNorth, true, isWallSouth, isWallEast);
             ROS_INFO("INITIALIZING");
         }
+        else if (!isTurn){
+            if(std::abs( euclidian_distance(x, last->x, y, last->y)) > 0.1){
+                if (lastOutOfRange == NULL || std::abs( euclidian_distance(x, lastOutOfRange->x, y, lastOutOfRange->y)) > 0.2){
+                    Node* tmp = new Node(x, y, value);
+                    out_of_range.insert(tmp);
+                    lastOutOfRange = tmp;
+                    ROS_INFO("ADDED TO OUT OF RANGE");
+                }
+            }
+        } 
         else if (is_free(value)){
             if (!does_node_exist(x, y, TOPO_NODE_FREE, isWallNorth, isWallWest, isWallSouth, isWallEast)){
                 Node* tmp = new Node(x, y, value);
@@ -559,6 +572,15 @@ public:
         }
         else{
             nodes.insert(new_node);
+            if (out_of_range.size() != 0){
+                for(Node *n: out_of_range){
+                    if(std::abs( euclidian_distance(n->x, last->x, n->y, last->y)) > 0.20 && std::abs( euclidian_distance(n->x, new_node->x, n->y, new_node->y)) > 0.20){
+                        nodes.insert(n);
+                        link(last_node, n);
+                    }
+                }
+                out_of_range.clear();
+            }
             link(last_node, new_node);
         }
     }
@@ -606,16 +628,16 @@ public:
 
     void add_walls(double x, double y, bool isWallNorth, bool isWallWest, bool isWallSouth, bool isWallEast){
         if (isWallNorth == true){
-            add_node(x, y+0.2, TOPO_NODE_WALL, false,false,false,false);
+            add_node(x, y+0.2, TOPO_NODE_WALL,true, false,false,false,false);
         }
         if (isWallWest == true){
-            add_node(x-0.2, y, TOPO_NODE_WALL, false,false,false,false);
+            add_node(x-0.2, y, TOPO_NODE_WALL,true, false,false,false,false);
         }
         if (isWallSouth == true){
-            add_node(x, y-0.2, TOPO_NODE_WALL, false,false,false,false);
+            add_node(x, y-0.2, TOPO_NODE_WALL,true, false,false,false,false);
         }
         if (isWallEast == true){
-            add_node(x+0.2, y, TOPO_NODE_WALL, false,false,false,false);
+            add_node(x+0.2, y, TOPO_NODE_WALL,true, false,false,false,false);
         }
     }
 

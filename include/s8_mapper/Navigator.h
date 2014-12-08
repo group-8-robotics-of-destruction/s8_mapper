@@ -106,7 +106,7 @@ public:
         path = topological->dijkstra(topological->get_last(), is_object_node);
         
         ROS_INFO("FOUND PATH");
-        ROS_INFO("PATH %d", path.size());
+        ROS_INFO("PATH %lu", path.size());
 
         for(auto node : path) {
             ROS_INFO("(%.2lf, %.2lf)", node->x, node->y);
@@ -133,7 +133,7 @@ public:
         }
     
 
-        if(going_to_object_place) {
+        if(going_to_unexplored_place) {
             double heading = 0;
 
             auto current = path[node_index];

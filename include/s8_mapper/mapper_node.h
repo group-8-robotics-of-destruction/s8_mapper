@@ -13,6 +13,11 @@ namespace s8 {
         const std::string TOPIC_ROBOT_POSITION =            "robot_position";
         const std::string SERVICE_PLACE_NODE =              "/s8/map/PlaceNode";
 
+        enum NavigateType {
+            ToClosestUnexplored,
+            ToClosestObject
+        };
+
         struct IRPositions {
             Coordinate left_back;
             Coordinate left_front;

@@ -17,7 +17,8 @@ const std::string ACTION_TURN =                     s8::turner_node::ACTION_TURN
 
 enum GoToUnexploredResult {
     SUCCEEDED = 0,
-    FAILED = 1
+    FAILED = 1,
+    AllExplored = 2
 };
 
 typedef s8::turner_node::Direction RotateDirection;
@@ -46,8 +47,6 @@ public:
     }
 
     void go_to_unexplored_place() {
-        going_to_unexplored_place = true;
-        going_to_object_place = false;
         node_index = 0;
 
         auto is_unexplored_node = [this](Topological::Node * node) {
@@ -68,13 +67,21 @@ public:
 
         path = topological->dijkstra(topological->get_last(), is_unexplored_node);
 
-        ROS_INFO("PATH");
+        ROS_INFO("PATH %d", path.size());
+
+        if(path.size() == 0) {
+            //Nothing to explore.
+            go_to_unexplored_place_callback(GoToUnexploredResult::AllExplored);
+            return;
+        }
 
         for(auto node : path) {
             ROS_INFO("(%.2lf, %.2lf)", node->x, node->y);
         }
 
         navigating = true;
+        going_to_unexplored_place = true;
+        going_to_object_place = false;
 
         // exit(0);
     }
@@ -133,7 +140,7 @@ public:
         }
     
 
-        if(going_to_unexplored_place) {
+        if(going_to_unexplored_place || going_to_object_place) {
             double heading = 0;
 
             auto current = path[node_index];
@@ -141,6 +148,10 @@ public:
             if(path.size() == node_index + 1) {
                 //At target. Success.
                 ROS_INFO("At target");
+
+                if(going_to_object_place) {
+                    return go_to_unexplored_place_callback(GoToUnexploredResult::SUCCEEDED);
+                }
 
                 std::vector<double> headings = { TOPO_EAST, TOPO_NORTH, TOPO_WEST, TOPO_SOUTH };
 
@@ -154,6 +165,8 @@ public:
 
                 if(s8::utils::math::is_zero(heading)) {
                     ROS_INFO("Nothing to explore left.");
+                    go_to_unexplored_place_callback(GoToUnexploredResult::FAILED);
+                    navigating = false;
                     //exit(0);      x              
                 }
             } else {

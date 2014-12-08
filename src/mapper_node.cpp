@@ -209,7 +209,14 @@ public:
 private:
     void action_execute_navigate_callback(const s8_mapper::NavigateGoalConstPtr & navigate_goal) {
         ROS_INFO("Starting navigating");
-        navigator.go_to_unexplored_place();
+
+        if(navigate_goal->type == NavigateType::ToClosestUnexplored) {
+            ROS_INFO("Going to closest unexplored node.");
+            navigator.go_to_unexplored_place();
+        } else if(navigate_goal->type == NavigateType::ToClosestObject) {
+            ROS_INFO("Going to closest object.");
+            navigator.go_to_object_place();
+        }
 
         navigating = true;
         ros::Rate rate(10);

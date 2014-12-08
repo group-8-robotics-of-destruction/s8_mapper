@@ -281,26 +281,30 @@ public:
             }
             return false;
         };
+        auto check_properties_global = [](bool is_wall, std::unordered_set<Node*> nodes) {
+            if(nodes.size() == 0) {
+                return true;
+            }
+
+            for(auto n : nodes) {
+                if(is_wall) {
+                    if(n->value != TOPO_NODE_WALL) {
+                        return false;
+                    }
+                }
+            }
+            return true;
+        };
+
 
         for (auto n : nodes){
             // loop through old vector and load into new vector.
             // Check for type and position.
             if (is_free(n->value)){
-                // Check only based on distance in world coordinates
-                if (std::abs(n->x - x) < same_nodes_max_dist && std::abs(n->y - y) < same_nodes_max_dist){
-                    if ( check_properties(isWallNorth, neighbors_in_heading(n, TOPO_NORTH)) && check_properties(isWallWest, neighbors_in_heading(n, TOPO_WEST)) && check_properties(isWallSouth, neighbors_in_heading(n, TOPO_SOUTH)) && check_properties(isWallEast, neighbors_in_heading(n, TOPO_EAST))){                    
-                        
-                        // TODO: link last and (*nodeIte).
-                        // Think that the problem lies in the traverse rather than the linking.
-                        link(last, n);
-                        set_as_last_node(n);
-                        add_walls(n->x, n->y, isWallNorth, isWallWest, isWallSouth, isWallEast);
-                        update_position(n);
-                        return true;
-                    }
-                }
+                double dist_previous = euclidian_distance(n->x, last->x, n->y, last->y);
+                double dist_current  = euclidian_distance(x, last->x, y, last->y);
                 // Check based on euclidean distance if traveling between two known nodes.
-                if (std::abs( euclidian_distance(x, last->x, y, last->y) - euclidian_distance(n->x, last->x, n->y, last->y)) < same_nodes_euclidean_dist){
+                if (std::abs(dist_previous - dist_current) / dist_previous < same_nodes_euclidean_dist){
                     if (heading_between_nodes(last, x, y) == heading_between_nodes(last, n)){
                         if ( check_properties(isWallNorth, neighbors_in_heading(n, TOPO_NORTH)) && check_properties(isWallWest, neighbors_in_heading(n, TOPO_WEST)) && check_properties(isWallSouth, neighbors_in_heading(n, TOPO_SOUTH)) && check_properties(isWallEast, neighbors_in_heading(n, TOPO_EAST))){                    
                             if (n->neighbors.count(last)>0){
@@ -308,10 +312,26 @@ public:
                                 set_as_last_node(n);
                                 add_walls(n->x, n->y, isWallNorth, isWallWest, isWallSouth, isWallEast);
                                 update_position(n);
+                                ROS_INFO("MERGED EUCLIDEAN");
                                 return true;
                             }
                         } 
                     }  
+                }
+
+                // Check only based on distance in world coordinates
+                if (std::abs(n->x - x) < same_nodes_max_dist && std::abs(n->y - y) < same_nodes_max_dist){
+                    if ( check_properties_global(isWallNorth, neighbors_in_heading(n, TOPO_NORTH)) && check_properties_global(isWallWest, neighbors_in_heading(n, TOPO_WEST)) && check_properties_global(isWallSouth, neighbors_in_heading(n, TOPO_SOUTH)) && check_properties_global(isWallEast, neighbors_in_heading(n, TOPO_EAST))){                    
+                        
+                        // TODO: link last and (*nodeIte).
+                        // Think that the problem lies in the traverse rather than the linking.
+                        link(last, n);
+                        set_as_last_node(n);
+                        add_walls(n->x, n->y, isWallNorth, isWallWest, isWallSouth, isWallEast);
+                        update_position(n);
+                        ROS_INFO("MERGED WORLD COORDINATES");
+                        return true;
+                    }
                 }
             }
         }
@@ -478,6 +498,10 @@ public:
                     previous[neighbor_node] = closest_node;
                 }
             }
+        }
+
+        if(target == NULL) {
+            return std::vector<Node*>();
         }
 
         double path_length = 0;

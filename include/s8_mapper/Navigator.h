@@ -171,6 +171,7 @@ public:
                     ROS_INFO("Nothing to explore left.");
                     go_to_unexplored_place_callback(GoToUnexploredResult::FAILED);
                     navigating = false;
+                    path.clear();
                     //exit(0);      x              
                 }
             } else {
@@ -221,6 +222,7 @@ public:
                     ROS_INFO("Will succeed.");
                     go_to_unexplored_place_callback(GoToUnexploredResult::SUCCEEDED);
                     navigating = false;                    
+                    path.clear();
                 }
             }
         }
@@ -316,6 +318,10 @@ public:
         else{
             return 270;
         }
+    }
+
+    std::vector<Topological::Node *> get_path() {
+        return path;
     }
 
 };

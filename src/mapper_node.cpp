@@ -145,7 +145,7 @@ public:
 
             occupancy_grid.render();
             render_robot(markerArray.markers);
-            topological.render(markerArray.markers);
+            topological.render(markerArray.markers, navigator.get_path());
             markers_publisher.publish(markerArray);
         }
     }

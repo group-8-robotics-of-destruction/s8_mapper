@@ -190,7 +190,7 @@ public:
         return true;
     }
 
-    void render(std::vector<visualization_msgs::Marker> & markers) {
+    void render(std::vector<visualization_msgs::Marker> & markers, std::vector<Node*> special_nodes) {
         auto add_marker = [&markers, this](int type, double x, double y, float a, float r, float g, float b) {
             visualization_msgs::Marker marker;
 
@@ -232,7 +232,11 @@ public:
             }
         }
 
-        traverse(root, [&markers](Node * from, Node * to) {
+        auto is_special_point = [&special_nodes](Node * node){
+            return std::find(special_nodes.begin(), special_nodes.end(), node) != special_nodes.end();
+        };
+
+        traverse(root, [&markers, &is_special_point](Node * from, Node * to) {
             visualization_msgs::Marker marker;
             marker.header.frame_id = "map";
             marker.header.stamp = ros::Time();
@@ -245,14 +249,18 @@ public:
             marker.color.g = 1;
             marker.color.b = 0;
 
+            if(is_special_point(from) && is_special_point(to)) {
+                marker.color.r = 1;
+                marker.color.g = 0;
+                marker.color.b = 0;
+            }
+
             auto add_point = [&marker](Node *node) {
                 geometry_msgs::Point point;
                 point.x = node->x;
                 point.y = node->y;
                 marker.points.push_back(point);
             };
-
-
 
             add_point(from);
             add_point(to);

@@ -18,9 +18,10 @@ const std::string ACTION_STOP =                     s8::motor_controller_node::A
 const std::string ACTION_TURN =                     s8::turner_node::ACTION_TURN;
 
 enum GoToUnexploredResult {
-    SUCCEEDED = 0,
-    FAILED = 1,
-    AllExplored = 2
+    SUCCEEDED = 1,
+    AllExplored = 2,
+    FAILED = 3,
+    AtRoot = 4
 };
 
 typedef s8::turner_node::Direction RotateDirection;
@@ -52,7 +53,7 @@ public:
         ROS_INFO("Connected to stop action server!");
     }
 
-    void go_to_unexplored_place() {
+    int go_to_unexplored_place() {
         init_go_to();
         going_to_unexplored_place = true;
 
@@ -76,12 +77,16 @@ public:
 
         if(path.size() == 0) {
             //Nothing to explore.
-            go_to_callback(GoToUnexploredResult::AllExplored);
-            return;
+            //go_to_callback(GoToUnexploredResult::AllExplored);
+            going_to_unexplored_place = false;
+            navigating = false;
+            return GoToUnexploredResult::AllExplored;
         }
+
+        return 0;
     }
 
-    void go_to_object_place() {
+    int go_to_object_place() {
         init_go_to();
         going_to_object_place = true;
         ROS_INFO("BEFORE AUTO");
@@ -101,9 +106,21 @@ public:
 
             return false;
         };
+
+        path = topological->dijkstra(topological->get_last(), is_object_node);
+
+        if(path.size() == 0) {
+            //Nothing to explore.
+            //go_to_callback(GoToUnexploredResult::SUCCEEDED); //TODO: Other?
+            navigating = false;
+            going_to_object_place = false;
+            return GoToUnexploredResult::SUCCEEDED;
+        }
+
+        return 0;
     }
 
-    void go_to_root() {
+    int go_to_root() {
         init_go_to();
         going_to_root = true;
 
@@ -112,6 +129,16 @@ public:
         };
 
         path = topological->dijkstra(topological->get_last(), is_root_node);
+
+        if(path.size() == 0 || path.size() == 1) {
+            ROS_INFO("Cannot find root!");
+            //go_to_callback(GoToUnexploredResult::SUCCEEDED); //TODO: Other?
+            going_to_root = false;
+            navigating = false;
+            return GoToUnexploredResult::AtRoot;
+        }
+
+        return 0;
     }
 
     void init_go_to() {
@@ -148,8 +175,13 @@ public:
                 //At target. Success.
                 ROS_INFO("At target");
 
-                if(going_to_object_place || going_to_root) {
+                if(going_to_object_place) {
+                    navigating = false;
                     return go_to_callback(GoToUnexploredResult::SUCCEEDED);
+                } else if(going_to_root) {
+                    ROS_INFO("Back at root!!");
+                    navigating = false;
+                    return go_to_callback(GoToUnexploredResult::AtRoot);
                 }
 
                 std::vector<double> headings = { TOPO_EAST, TOPO_NORTH, TOPO_WEST, TOPO_SOUTH };

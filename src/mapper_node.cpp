@@ -95,6 +95,7 @@ class Mapper : public s8::Node {
 
     Navigator navigator;
     bool navigating;
+    int navigating_stopped_reason;
 
     actionlib::SimpleActionServer<s8_mapper::NavigateAction> navigate_action_server;
 
@@ -217,33 +218,40 @@ private:
     void action_execute_navigate_callback(const s8_mapper::NavigateGoalConstPtr & navigate_goal) {
         ROS_INFO("Starting navigating");
 
+        int status;
+
         if(navigate_goal->type == NavigateType::ToClosestUnexplored) {
             ROS_INFO("Going to closest unexplored node.");
-            navigator.go_to_unexplored_place();
+            status = navigator.go_to_unexplored_place();
         } else if(navigate_goal->type == NavigateType::ToClosestObject) {
             ROS_INFO("Going to closest object.");
-            navigator.go_to_object_place();
+            status = navigator.go_to_object_place();
         } else if(navigate_goal->type == NavigateType::ToRoot) {
             ROS_INFO("Going to root.");
-            navigator.go_to_root();
+            status = navigator.go_to_root();
         }
 
-        navigating = true;
-        ros::Rate rate(10);
-        int ticks = 0;
-        while(ros::ok() && navigating) {
-            rate.sleep();
-            ros::spinOnce();
+        if(status == 0) {
+            navigating = true;
+            ros::Rate rate(10);
+            int ticks = 0;
+            while(ros::ok() && navigating) {
+                rate.sleep();
+                ros::spinOnce();
+            }
+        } else {
+            navigating_stopped_reason = status;
         }
 
         s8_mapper::NavigateResult navigate_action_result;
-        navigate_action_result.reason = 0;
-        ROS_INFO("PREEMPTED: Navigate action succeded.");
+        navigate_action_result.reason = navigating_stopped_reason;
+        ROS_INFO("Navigate action stopped. reason: %d", navigating_stopped_reason);
         navigate_action_server.setSucceeded(navigate_action_result);
     }
 
     void go_to_callback(GoToUnexploredResult result) {
         ROS_INFO("Callback %d", result);
+        navigating_stopped_reason = result;
         navigating = false;
     }
 

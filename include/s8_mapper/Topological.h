@@ -238,7 +238,7 @@ public:
             }
         }
 
-        traverse(root, [&markers, &is_special_point](Node * from, Node * to) {
+        traverse(root, [&markers, &is_special_point, this](Node * from, Node * to) {
             visualization_msgs::Marker marker;
             marker.header.frame_id = "map";
             marker.header.stamp = ros::Time();
@@ -255,6 +255,12 @@ public:
                 marker.color.r = 0;
                 marker.color.g = 1;
                 marker.color.b = 0;
+            }
+
+            if(is_object(to) || is_object(from)) {
+                marker.color.r = 0;
+                marker.color.g = 0.5;
+                marker.color.b = 1;
             }
 
             auto add_point = [&marker](Node *node) {
@@ -322,6 +328,7 @@ public:
                                 set_as_last_node(n);
                                 add_walls(n->x, n->y, isWallNorth, isWallWest, isWallSouth, isWallEast);
                                 update_position(n);
+                                out_of_range.clear();
                                 ROS_INFO("MERGED EUCLIDEAN");
                                 return true;
                             }
@@ -334,7 +341,7 @@ public:
                     if ( check_properties_global(isWallNorth, neighbors_in_heading(n, TOPO_NORTH)) && check_properties_global(isWallWest, neighbors_in_heading(n, TOPO_WEST)) && check_properties_global(isWallSouth, neighbors_in_heading(n, TOPO_SOUTH)) && check_properties_global(isWallEast, neighbors_in_heading(n, TOPO_EAST))){                    
                         
                         if(n == last) {
-                            if(dist_current > 0.1) {
+                            if(dist_current > 0.15) {
                                 ROS_INFO("n == last and not close enough");
                                 return false;
                             }
@@ -348,8 +355,20 @@ public:
                         if(n != last) {
                             update_position(n);
                         }
+                        out_of_range.clear();
                         ROS_INFO("MERGED WORLD COORDINATES");
                         return true;
+                    }
+                    else if(n == last){
+                        if ( check_properties(isWallNorth, neighbors_in_heading(n, TOPO_NORTH)) && check_properties(isWallWest, neighbors_in_heading(n, TOPO_WEST)) && check_properties(isWallSouth, neighbors_in_heading(n, TOPO_SOUTH)) && check_properties(isWallEast, neighbors_in_heading(n, TOPO_EAST))){                    
+                            link(last, n);
+                            set_as_last_node(n);
+                            add_walls(n->x, n->y, isWallNorth, isWallWest, isWallSouth, isWallEast);
+                            update_position(n);
+                            out_of_range.clear();
+                            ROS_INFO("MERGED EUCLIDEAN");
+                            return true;
+                        } 
                     }
                 }
             }
@@ -626,6 +645,7 @@ public:
                     }
                 }
                 out_of_range.clear();
+                ROS_INFO("out_of_range cleared");
             }
             link(last_node, new_node);
         }

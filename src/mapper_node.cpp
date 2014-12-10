@@ -158,7 +158,7 @@ public:
             marker.header.stamp = ros::Time();
             marker.ns = "s8";
             marker.id = markers.size();
-            marker.type = visualization_msgs::Marker::CUBE;
+            marker.type = visualization_msgs::Marker::SPHERE;
             marker.action = visualization_msgs::Marker::ADD;
             marker.pose.position.x = coordinate.i * resolution - side_length / 2;
             marker.pose.position.y = coordinate.j * resolution - side_length / 2;
@@ -167,9 +167,9 @@ public:
             marker.pose.orientation.y = 0;
             marker.pose.orientation.z = 0;
             marker.pose.orientation.w = 0;
-            marker.scale.x = resolution;
-            marker.scale.y = resolution;
-            marker.scale.z = resolution;
+            marker.scale.x = resolution * 3;
+            marker.scale.y = resolution * 3;
+            marker.scale.z = resolution * 3;
             marker.color.a = a;
             marker.color.r = r;
             marker.color.g = g;
@@ -190,12 +190,12 @@ public:
 
 //        ROS_INFO("left_front: %s", to_string(ir_world_positions.left_front).c_str());
 
-        render_sensor(ir_world_positions.left_front, 1, 1, 0);
-        render_sensor(ir_world_positions.left_back, 1, 0, 1);
-        render_sensor(ir_world_positions.right_back, 0, 0, 1);
-        render_sensor(ir_world_positions.right_front, 0, 1, 0);
+        // render_sensor(ir_world_positions.left_front, 1, 1, 0);
+        // render_sensor(ir_world_positions.left_back, 1, 0, 1);
+        // render_sensor(ir_world_positions.right_back, 0, 0, 1);
+        // render_sensor(ir_world_positions.right_front, 0, 1, 0);
 
-        render_robot(0, 0, 0);
+        render_robot(1, 1, 1);
     }
 
     void save() {

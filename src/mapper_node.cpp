@@ -101,7 +101,7 @@ class Mapper : public s8::Node {
     ros::Publisher twist_publisher;
 
 public:
-    Mapper() : navigating(false), left_back_reading(TRESHOLD_VALUE), left_front_reading(TRESHOLD_VALUE), right_front_reading(TRESHOLD_VALUE), right_back_reading(TRESHOLD_VALUE), render_frame_skips(0), render_frames_to_skip((HZ / RENDER_HZ) - 1), map_state(0), map_state_rendered(-1), robot_x(0.0), robot_y(0.0), prev_robot_x(0.0), prev_robot_y(0.0), robot_pose(0, 0, -90), navigator(&topological, std::bind(&Mapper::go_to_unexplored_place_callback, this, std::placeholders::_1), &twist_publisher, &robot_pose), navigate_action_server(nh, ACTION_NAVIGATE, boost::bind(&Mapper::action_execute_navigate_callback, this, _1), false) {
+    Mapper() : navigating(false), left_back_reading(TRESHOLD_VALUE), left_front_reading(TRESHOLD_VALUE), right_front_reading(TRESHOLD_VALUE), right_back_reading(TRESHOLD_VALUE), render_frame_skips(0), render_frames_to_skip((HZ / RENDER_HZ) - 1), map_state(0), map_state_rendered(-1), robot_x(0.0), robot_y(0.0), prev_robot_x(0.0), prev_robot_y(0.0), robot_pose(0, 0, -90), navigator(&topological, std::bind(&Mapper::go_to_callback, this, std::placeholders::_1), &twist_publisher, &robot_pose), navigate_action_server(nh, ACTION_NAVIGATE, boost::bind(&Mapper::action_execute_navigate_callback, this, _1), false) {
         init_params();
         print_params();
 
@@ -223,6 +223,9 @@ private:
         } else if(navigate_goal->type == NavigateType::ToClosestObject) {
             ROS_INFO("Going to closest object.");
             navigator.go_to_object_place();
+        } else if(navigate_goal->type == NavigateType::ToRoot) {
+            ROS_INFO("Going to root.");
+            navigator.go_to_root();
         }
 
         navigating = true;
@@ -239,7 +242,7 @@ private:
         navigate_action_server.setSucceeded(navigate_action_result);
     }
 
-    void go_to_unexplored_place_callback(GoToUnexploredResult result) {
+    void go_to_callback(GoToUnexploredResult result) {
         ROS_INFO("Callback %d", result);
         navigating = false;
     }

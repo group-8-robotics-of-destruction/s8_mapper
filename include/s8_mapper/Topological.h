@@ -218,8 +218,14 @@ public:
             markers.push_back(marker);
         };
 
+        auto is_special_point = [&special_nodes](Node * node){
+            return std::find(special_nodes.begin(), special_nodes.end(), node) != special_nodes.end();
+        };
+
         for(Node *n : nodes) {
-            if(is_wall(n)) {
+            if(is_special_point(n)) {
+                add_marker(visualization_msgs::Marker::SPHERE, n->x, n->y, 1, 0, 1, 0);
+            } else if(is_wall(n)) {
                 add_marker(visualization_msgs::Marker::SPHERE, n->x, n->y, 1, 1, 0, 0);
             } else if(is_current(n)) {
                 add_marker(visualization_msgs::Marker::SPHERE, n->x, n->y, 1, 0, 1, 1);
@@ -231,10 +237,6 @@ public:
                 add_marker(visualization_msgs::Marker::SPHERE, n->x, n->y, 1, 0, 0.5, 1);
             }
         }
-
-        auto is_special_point = [&special_nodes](Node * node){
-            return std::find(special_nodes.begin(), special_nodes.end(), node) != special_nodes.end();
-        };
 
         traverse(root, [&markers, &is_special_point](Node * from, Node * to) {
             visualization_msgs::Marker marker;
@@ -250,8 +252,8 @@ public:
             marker.color.b = 0;
 
             if(is_special_point(from) && is_special_point(to)) {
-                marker.color.r = 1;
-                marker.color.g = 0;
+                marker.color.r = 0;
+                marker.color.g = 1;
                 marker.color.b = 0;
             }
 
@@ -304,8 +306,8 @@ public:
             return true;
         };
 
-
         for (auto n : nodes){
+
             // loop through old vector and load into new vector.
             // Check for type and position.
             if (is_free(n->value)){
@@ -331,12 +333,21 @@ public:
                 if (std::abs(n->x - x) < same_nodes_max_dist && std::abs(n->y - y) < same_nodes_max_dist){
                     if ( check_properties_global(isWallNorth, neighbors_in_heading(n, TOPO_NORTH)) && check_properties_global(isWallWest, neighbors_in_heading(n, TOPO_WEST)) && check_properties_global(isWallSouth, neighbors_in_heading(n, TOPO_SOUTH)) && check_properties_global(isWallEast, neighbors_in_heading(n, TOPO_EAST))){                    
                         
+                        if(n == last) {
+                            if(dist_current > 0.1) {
+                                ROS_INFO("n == last and not close enough");
+                                return false;
+                            }
+                        }
+
                         // TODO: link last and (*nodeIte).
                         // Think that the problem lies in the traverse rather than the linking.
                         link(last, n);
                         set_as_last_node(n);
                         add_walls(n->x, n->y, isWallNorth, isWallWest, isWallSouth, isWallEast);
-                        update_position(n);
+                        if(n != last) {
+                            update_position(n);
+                        }
                         ROS_INFO("MERGED WORLD COORDINATES");
                         return true;
                     }
@@ -571,6 +582,9 @@ public:
             return true;
         else 
             return false;
+    }
+    bool is_root(Node *node) {
+        return node == root;
     }
 
     bool is_wall(int value) {

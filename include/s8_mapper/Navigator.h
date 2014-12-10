@@ -30,9 +30,10 @@ class Navigator {
     actionlib::SimpleActionClient<s8_turner::TurnAction> turn_action;
     actionlib::SimpleActionClient<s8_motor_controller::StopAction> stop_action;
     Topological *topological;
-    std::function<void(GoToUnexploredResult)> go_to_unexplored_place_callback;
+    std::function<void(GoToUnexploredResult)> go_to_callback;
     bool going_to_unexplored_place;
     bool going_to_object_place;
+    bool going_to_root;
     IRReadings ir_readings;
     std::vector<Topological::Node*> path;
     int node_index;
@@ -41,7 +42,7 @@ class Navigator {
     s8::mapper_node::RobotPose *robot_pose;
 
 public:
-    Navigator(Topological * topological, std::function<void(GoToUnexploredResult)> go_to_unexplored_place_callback, ros::Publisher *twist_publisher, s8::mapper_node::RobotPose *robot_pose) : going_to_object_place(false), navigating(false), topological(topological), go_to_unexplored_place_callback(go_to_unexplored_place_callback), going_to_unexplored_place(false), turn_action(ACTION_TURN, true), stop_action(ACTION_STOP, true), twist_publisher(twist_publisher), go_straight_velocity(0.15), robot_pose(robot_pose) {
+    Navigator(Topological * topological, std::function<void(GoToUnexploredResult)> go_to_callback, ros::Publisher *twist_publisher, s8::mapper_node::RobotPose *robot_pose) : going_to_object_place(false), navigating(false), topological(topological), go_to_callback(go_to_callback), going_to_unexplored_place(false), turn_action(ACTION_TURN, true), stop_action(ACTION_STOP, true), twist_publisher(twist_publisher), go_straight_velocity(0.15), robot_pose(robot_pose) {
         ROS_INFO("Waiting for turn action server...");
         turn_action.waitForServer();
         ROS_INFO("Connected to turn action server!");
@@ -52,7 +53,8 @@ public:
     }
 
     void go_to_unexplored_place() {
-        node_index = 0;
+        init_go_to();
+        going_to_unexplored_place = true;
 
         auto is_unexplored_node = [this](Topological::Node * node) {
             if(!topological->is_free(node)) {
@@ -72,29 +74,16 @@ public:
 
         path = topological->dijkstra(topological->get_last(), is_unexplored_node);
 
-        ROS_INFO("PATH");
-
         if(path.size() == 0) {
             //Nothing to explore.
-            go_to_unexplored_place_callback(GoToUnexploredResult::AllExplored);
+            go_to_callback(GoToUnexploredResult::AllExplored);
             return;
         }
-
-        for(auto node : path) {
-            ROS_INFO("(%.2lf, %.2lf)", node->x, node->y);
-        }
-
-        navigating = true;
-        going_to_unexplored_place = true;
-        going_to_object_place = false;
-
-        // exit(0);
     }
 
     void go_to_object_place() {
+        init_go_to();
         going_to_object_place = true;
-        going_to_unexplored_place = false;
-        node_index = 0;
         ROS_INFO("BEFORE AUTO");
 
         auto is_object_node = [this](Topological::Node * node) {
@@ -112,19 +101,24 @@ public:
 
             return false;
         };
+    }
 
-        ROS_INFO("returned object viewer node");
+    void go_to_root() {
+        init_go_to();
+        going_to_root = true;
 
-        path = topological->dijkstra(topological->get_last(), is_object_node);
-        
-        ROS_INFO("FOUND PATH");
-        ROS_INFO("PATH %lu", path.size());
+        auto is_root_node = [this](Topological::Node * node) {
+            return topological->is_root(node);
+        };
 
-        for(auto node : path) {
-            ROS_INFO("(%.2lf, %.2lf)", node->x, node->y);
-        }
+        path = topological->dijkstra(topological->get_last(), is_root_node);
+    }
 
-        ROS_INFO("AT THE END");
+    void init_go_to() {
+        node_index = 0;
+        going_to_object_place = false;
+        going_to_unexplored_place = false;
+        going_to_root = false;
         navigating = true;
     }
 
@@ -144,7 +138,7 @@ public:
             robot_rotation -= 2 * M_PI;
         }
 
-        if(going_to_unexplored_place || going_to_object_place) {
+        if(going_to_unexplored_place || going_to_object_place || going_to_root) {
             double heading = 0;
             Topological::Node *next = NULL;
 
@@ -154,8 +148,8 @@ public:
                 //At target. Success.
                 ROS_INFO("At target");
 
-                if(going_to_object_place) {
-                    return go_to_unexplored_place_callback(GoToUnexploredResult::SUCCEEDED);
+                if(going_to_object_place || going_to_root) {
+                    return go_to_callback(GoToUnexploredResult::SUCCEEDED);
                 }
 
                 std::vector<double> headings = { TOPO_EAST, TOPO_NORTH, TOPO_WEST, TOPO_SOUTH };
@@ -169,7 +163,7 @@ public:
 
                 if(s8::utils::math::is_zero(heading)) {
                     ROS_INFO("Nothing to explore left.");
-                    go_to_unexplored_place_callback(GoToUnexploredResult::FAILED);
+                    go_to_callback(GoToUnexploredResult::AllExplored);
                     navigating = false;
                     path.clear();
                     //exit(0);      x              
@@ -220,7 +214,7 @@ public:
                     }
                 } else {
                     ROS_INFO("Will succeed.");
-                    go_to_unexplored_place_callback(GoToUnexploredResult::SUCCEEDED);
+                    go_to_callback(GoToUnexploredResult::SUCCEEDED);
                     navigating = false;                    
                     path.clear();
                 }

@@ -15,7 +15,8 @@ namespace s8 {
 
         enum NavigateType {
             ToClosestUnexplored,
-            ToClosestObject
+            ToClosestObject,
+            ToRoot
         };
 
         struct IRPositions {

@@ -52,8 +52,8 @@ private:
     ros::ServiceClient* set_position_client;
     double same_nodes_max_dist;
     double same_nodes_euclidean_dist;
-    std::vector<Node*> object_viewers_visited;
-    std::vector<Node*> object_viewers;
+    std::unordered_set<Node*> object_viewers_visited;
+    std::unordered_set<Node*> object_viewers;
 
 public:
     Topological() {
@@ -178,6 +178,7 @@ public:
             viewer = tmp;
             link(last, viewer);
             nodes.insert(viewer);
+            object_viewers.insert(viewer);
         }
         else if (value == TOPO_NODE_OBJECT){
             Node * merge_node = NULL;
@@ -764,7 +765,27 @@ public:
     }
 
     bool has_object_nodes() {
-        return false;
+        return object_viewers.size() > object_viewers_visited.size();
+    }
+
+    void visit_object_viewer(Node *node) {
+        Node * object = NULL;
+
+        for(auto n : node->neighbors) {
+            if(is_object(n)) {
+                object = n;
+                break;
+            }
+        }
+
+        if(object == NULL) {
+            ROS_FATAL("Object viewer has no object");
+            return;
+        }
+
+        for(auto n : object->neighbors) {
+            object_viewers_visited.insert(n);
+        }
     }
 
     void add_params()

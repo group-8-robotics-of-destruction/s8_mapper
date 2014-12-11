@@ -165,6 +165,8 @@ public:
 
                 if(going_to_object_place) {
                     navigating = false;
+                    ROS_INFO("Visited object viewer node!");
+                    topological->visit_object_viewer(current);
                     return go_to_callback(GoToUnexploredResult::SUCCEEDED);
                 } else if(going_to_root) {
                     ROS_INFO("Back at root!!");

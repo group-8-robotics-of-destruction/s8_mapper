@@ -761,6 +761,12 @@ public:
         return std::atan2(dy, dx);
     }
 
+    double angle_between_nodes(double x_from, double y_from, Node * to) {
+        double dx = x_from - to->x;
+        double dy = y_from - to->y;
+        return std::atan2(dy, dx);
+    }
+
     double heading_between_nodes(Node * from, Node * to) {
         return angle_to_heading(angle_between_nodes(from, to));
     }
@@ -792,6 +798,7 @@ public:
 
         if(object == NULL) {
             ROS_FATAL("Object viewer has no object");
+            *phase2 = false;
             return;
         }
 

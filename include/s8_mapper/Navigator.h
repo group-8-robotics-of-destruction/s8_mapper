@@ -170,7 +170,7 @@ public:
                     navigating = false;
                     ROS_INFO("Visited object viewer node!");
                     topological->visit_object_viewer(current);
-                    return go_to_callback(GoToUnexploredResult::SUCCEEDED);
+                    return go_to_callback(GoToUnexploredResult::AtObjectViewer);
                 } else if(going_to_root) {
                     ROS_INFO("Back at root!!");
                     navigating = false;
@@ -319,6 +319,43 @@ public:
                 diff += 360;
             double alpha = 1.0/45.0;
             twist.angular.z = alpha*(double)diff;
+            twist_publisher->publish(twist);
+            loop_rate.sleep();
+        }
+    }
+
+    void align_to_object(std::function<bool()> condition, Topological::Node *object) {
+        geometry_msgs::Twist twist;
+        twist.linear.x = go_straight_velocity;
+        int heading = get_current_heading();
+
+        bool should_stop_go_straight = false; //TODO: Remove?
+
+        ros::Rate loop_rate(25);
+        while(condition() && ros::ok() && !should_stop_go_straight) {
+            ros::spinOnce();
+
+            double desired_angle = topological->angle_between_nodes(robot_pose->position.x, robot_pose->position.y, object);
+            int rotation = (int)robot_pose->rotation % 360;
+            if (rotation < 0){
+                rotation += 360;
+            }
+            double rotation_rad = s8::utils::math::degrees_to_radians(rotation);
+
+            double diff = rotation_rad - desired_angle;
+
+            if (diff > 180){
+                diff -= 360;
+            } else if (diff < -180) {
+                diff += 360;
+            }
+
+            if (diff > 0){
+                twist.angular.z = 0.7;
+            } else {
+                twist.angular.z = 0.7;
+            }
+
             twist_publisher->publish(twist);
             loop_rate.sleep();
         }

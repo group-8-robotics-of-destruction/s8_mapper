@@ -36,6 +36,8 @@
 #define PARAM_ROBOT_WIDTH_DEFAULT   0.235
 #define PARAM_ROBOT_LENGTH_NAME     "robot_length"
 #define PARAM_ROBOT_LENGTH_DEFAULT  0.2
+#define PARAM_PHASE_2_NAME          "phase_2"
+#define PARAM_PHASE_2_DEFAULT       false
 
 #define TOPIC_IR_DISTANCES          s8::ir_sensors_node::TOPIC_IR_DISTANCES
 #define TOPIC_POSE                  s8::pose_node::TOPIC_POSE_SIMPLE
@@ -100,6 +102,8 @@ class Mapper : public s8::Node {
     actionlib::SimpleActionServer<s8_mapper::NavigateAction> navigate_action_server;
 
     ros::Publisher twist_publisher;
+
+    bool phase2;
 
 public:
     Mapper() : navigating(false), left_back_reading(TRESHOLD_VALUE), left_front_reading(TRESHOLD_VALUE), right_front_reading(TRESHOLD_VALUE), right_back_reading(TRESHOLD_VALUE), render_frame_skips(0), render_frames_to_skip((HZ / RENDER_HZ) - 1), map_state(0), map_state_rendered(-1), robot_x(0.0), robot_y(0.0), prev_robot_x(0.0), prev_robot_y(0.0), robot_pose(0, 0, -90), navigator(&topological, std::bind(&Mapper::go_to_callback, this, std::placeholders::_1), &twist_publisher, &robot_pose), navigate_action_server(nh, ACTION_NAVIGATE, boost::bind(&Mapper::action_execute_navigate_callback, this, _1), false) {
@@ -168,9 +172,9 @@ public:
             marker.pose.orientation.y = 0;
             marker.pose.orientation.z = 0;
             marker.pose.orientation.w = 0;
-            marker.scale.x = resolution * 3;
-            marker.scale.y = resolution * 3;
-            marker.scale.z = resolution * 3;
+            marker.scale.x = resolution * 6;
+            marker.scale.y = resolution * 6;
+            marker.scale.z = resolution * 6;
             marker.color.a = a;
             marker.color.r = r;
             marker.color.g = g;
@@ -218,15 +222,23 @@ private:
     void action_execute_navigate_callback(const s8_mapper::NavigateGoalConstPtr & navigate_goal) {
         ROS_INFO("Starting navigating");
 
+        int type = navigate_goal->type;
         int status;
 
-        if(navigate_goal->type == NavigateType::ToClosestUnexplored) {
+        if(phase2 && type == NavigateType::ToClosestUnexplored) {
+            if(topological.has_object_nodes()) {
+                ROS_INFO("Intercepting unexplored action to go to object node instead.");
+                type = NavigateType::ToClosestObject;
+            }
+        }
+
+        if(type == NavigateType::ToClosestUnexplored) {
             ROS_INFO("Going to closest unexplored node.");
             status = navigator.go_to_unexplored_place();
-        } else if(navigate_goal->type == NavigateType::ToClosestObject) {
+        } else if(type == NavigateType::ToClosestObject) {
             ROS_INFO("Going to closest object.");
             status = navigator.go_to_object_place();
-        } else if(navigate_goal->type == NavigateType::ToRoot) {
+        } else if(type == NavigateType::ToRoot) {
             ROS_INFO("Going to root.");
             status = navigator.go_to_root();
         }
@@ -375,6 +387,7 @@ private:
         add_param(PARAM_RESOLUTION_NAME, resolution, PARAM_RESOLUTION_DEFAULT);
         add_param(PARAM_ROBOT_WIDTH_NAME, robot_width, PARAM_ROBOT_WIDTH_DEFAULT);
         add_param(PARAM_ROBOT_LENGTH_NAME, robot_length, PARAM_ROBOT_LENGTH_DEFAULT);
+        add_param(PARAM_PHASE_2_NAME, phase2, PARAM_PHASE_2_DEFAULT);
     }
 };
 

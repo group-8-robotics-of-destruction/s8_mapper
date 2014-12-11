@@ -52,6 +52,8 @@ private:
     ros::ServiceClient* set_position_client;
     double same_nodes_max_dist;
     double same_nodes_euclidean_dist;
+    std::vector<Node*> object_viewers_visited;
+    std::vector<Node*> object_viewers;
 
 public:
     Topological() {
@@ -171,16 +173,28 @@ public:
                 return false;
             }
         }
-        else if (value == TOPO_NODE_OBJECT_VIEWER){
+        else if (value == TOPO_NODE_OBJECT_VIEWER) {
             Node* tmp = new Node(x, y, value);
             viewer = tmp;
             link(last, viewer);
             nodes.insert(viewer);
         }
         else if (value == TOPO_NODE_OBJECT){
-            Node* tmp = new Node(x, y, value);
-            link(viewer, tmp);
-            nodes.insert(tmp);
+            Node * merge_node = NULL;
+            for(auto n : nodes) {
+                if(n->value == TOPO_NODE_OBJECT && std::abs(euclidian_distance(x, n->x, y, n->y)) < 0.2) {
+                    merge_node = n;
+                    break;
+                }
+            }
+
+            if(merge_node != NULL) {
+                link(merge_node, viewer);
+            } else {
+                Node* tmp = new Node(x, y, value);
+                link(viewer, tmp);
+                nodes.insert(tmp);
+            }
         }
         else{
             Node* tmp = new Node(x, y, value);
@@ -255,9 +269,7 @@ public:
                 marker.color.r = 0;
                 marker.color.g = 1;
                 marker.color.b = 0;
-            }
-
-            if(is_object(to) || is_object(from)) {
+            } else if(is_object(to) || is_object(from)) {
                 marker.color.r = 0;
                 marker.color.g = 0.5;
                 marker.color.b = 1;
@@ -324,12 +336,12 @@ public:
                     if (heading_between_nodes(last, x, y) == heading_between_nodes(last, n)){
                         if ( check_properties(isWallNorth, neighbors_in_heading(n, TOPO_NORTH)) && check_properties(isWallWest, neighbors_in_heading(n, TOPO_WEST)) && check_properties(isWallSouth, neighbors_in_heading(n, TOPO_SOUTH)) && check_properties(isWallEast, neighbors_in_heading(n, TOPO_EAST))){                    
                             if (n->neighbors.count(last)>0){
+                                out_of_range.clear();
                                 link(last, n);
                                 set_as_last_node(n);
                                 add_walls(n->x, n->y, isWallNorth, isWallWest, isWallSouth, isWallEast);
                                 update_position(n);
-                                out_of_range.clear();
-                                ROS_INFO("MERGED EUCLIDEAN");
+                                ROS_FATAL("MERGED EUCLIDEAN");
                                 return true;
                             }
                         } 
@@ -349,24 +361,25 @@ public:
 
                         // TODO: link last and (*nodeIte).
                         // Think that the problem lies in the traverse rather than the linking.
-                        link(last, n);
-                        set_as_last_node(n);
-                        add_walls(n->x, n->y, isWallNorth, isWallWest, isWallSouth, isWallEast);
                         if(n != last) {
                             update_position(n);
                         }
+                    
                         out_of_range.clear();
-                        ROS_INFO("MERGED WORLD COORDINATES");
+                        link(last, n);
+                        set_as_last_node(n);
+                        add_walls(n->x, n->y, isWallNorth, isWallWest, isWallSouth, isWallEast);
+                        ROS_FATAL("MERGED WORLD COORDINATES");
                         return true;
                     }
                     else if(n == last){
                         if ( check_properties(isWallNorth, neighbors_in_heading(n, TOPO_NORTH)) && check_properties(isWallWest, neighbors_in_heading(n, TOPO_WEST)) && check_properties(isWallSouth, neighbors_in_heading(n, TOPO_SOUTH)) && check_properties(isWallEast, neighbors_in_heading(n, TOPO_EAST))){                    
+                            out_of_range.clear();
                             link(last, n);
                             set_as_last_node(n);
                             add_walls(n->x, n->y, isWallNorth, isWallWest, isWallSouth, isWallEast);
                             update_position(n);
-                            out_of_range.clear();
-                            ROS_INFO("MERGED EUCLIDEAN");
+                            ROS_FATAL("MERGED EUCLIDEAN LAST");
                             return true;
                         } 
                     }
@@ -640,6 +653,7 @@ public:
             if (out_of_range.size() != 0){
                 for(Node *n: out_of_range){
                     if(std::abs( euclidian_distance(n->x, last->x, n->y, last->y)) > 0.20 && std::abs( euclidian_distance(n->x, new_node->x, n->y, new_node->y)) > 0.20){
+                        ROS_INFO("in between node %lf %lf", n->x, n->y);
                         nodes.insert(n);
                         link(last_node, n);
                     }
@@ -747,6 +761,10 @@ public:
         double yd = std::abs(y_from - y_to);
 
         return std::sqrt(xd*xd + yd*yd);
+    }
+
+    bool has_object_nodes() {
+        return false;
     }
 
     void add_params()

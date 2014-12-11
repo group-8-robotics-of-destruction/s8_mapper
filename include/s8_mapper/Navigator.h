@@ -92,19 +92,7 @@ public:
         ROS_INFO("BEFORE AUTO");
 
         auto is_object_node = [this](Topological::Node * node) {
-            if(!topological->is_object_viewer(node)) {
-                ROS_INFO("NOT OBJECT VIEWER");
-                return false;
-            }
-            std::vector<double> headings = { TOPO_EAST, TOPO_NORTH, TOPO_WEST, TOPO_SOUTH };
-
-            for(double heading : headings) {
-                if(topological->neighbors_in_heading(node, heading).size() == 0) {
-                    return true;
-                }
-            }
-
-            return false;
+            return topological->is_object_viewer(node);
         };
 
         path = topological->dijkstra(topological->get_last(), is_object_node);

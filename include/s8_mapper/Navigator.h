@@ -36,7 +36,7 @@ class Navigator {
     bool going_to_unexplored_place;
     bool going_to_object_place;
     bool going_to_root;
-    IRReadings ir_readings;
+    IRReadings *ir_readings;
     std::vector<Topological::Node*> path;
     int node_index;
     bool navigating;
@@ -90,10 +90,10 @@ public:
     int go_to_object_place() {
         init_go_to();
         going_to_object_place = true;
-        ROS_INFO("BEFORE AUTO");
+        ROS_INFO("GOING TO OBJECT PLACE");
 
         auto is_object_node = [this](Topological::Node * node) {
-            return topological->is_object_viewer(node);
+            return topological->is_object_viewer(node) && !topological->is_object_viewer_visited(node);
         };
 
         path = topological->dijkstra(topological->get_last(), is_object_node);
@@ -103,6 +103,7 @@ public:
             navigating = false;
             going_to_object_place = false;
             ROS_INFO("Visited object viewer node!");
+            system("espeak 'At object viewer node'");
             topological->visit_object_viewer(topological->get_last());
             go_to_callback(GoToUnexploredResult::AtObjectViewer);
             return GoToUnexploredResult::AtObjectViewer;
@@ -140,14 +141,14 @@ public:
         navigating = true;
     }
 
-    void update(IRReadings ir_readings) {
+    void update(IRReadings *ir_readings) {
         if(!navigating) {
             return;
         }
 
         ROS_INFO("robot_rotation: %d", (int)robot_pose->rotation);
 
-        ir_readings = ir_readings;
+        this->ir_readings = ir_readings;
         double robot_rotation = ((int)robot_pose->rotation % 360);
 
         robot_rotation = s8::utils::math::degrees_to_radians(robot_rotation);
@@ -170,6 +171,7 @@ public:
                     navigating = false;
                     ROS_INFO("Visited object viewer node!");
                     topological->visit_object_viewer(current);
+                    system("espeak 'At object viewer node'");
                     return go_to_callback(GoToUnexploredResult::AtObjectViewer);
                 } else if(going_to_root) {
                     ROS_INFO("Back at root!!");
@@ -319,6 +321,14 @@ public:
                 diff += 360;
             double alpha = 1.0/45.0;
             twist.angular.z = alpha*(double)diff;
+
+            ROS_INFO("left_front: %lf", ir_readings->left_front);
+            if(ir_readings->left_front > 0 && ir_readings->left_front < 0.07) {
+                twist.angular.z = -0.3;
+            } else if(ir_readings->right_front > 0 && ir_readings->right_front < 0.07) {
+                twist.angular.z = 0.3;
+            }
+
             twist_publisher->publish(twist);
             loop_rate.sleep();
         }

@@ -16,7 +16,6 @@ const std::string CONFIG_DOC =  "/catkin_ws/src/s8_mapper/parameters/parameters.
 #define TOPO_NODE_FREE              1 << 1
 #define TOPO_NODE_WALL              1 << 2
 #define TOPO_NODE_OBJECT            1 << 3
-#define TOPO_NODE_CURRENT           1 << 4
 #define TOPO_NODE_OBJECT_VIEWER     1 << 5
 
 #define TOPO_EAST           -1 * M_PI / 4
@@ -181,6 +180,7 @@ public:
             if(*phase2) {
                 return true;
             }
+            ROS_INFO("3");
 
             Node* tmp = new Node(x, y, value);
             viewer = tmp;
@@ -189,6 +189,11 @@ public:
             object_viewers.insert(viewer);
         }
         else if (value == TOPO_NODE_OBJECT){
+            if(*phase2) {
+                return true;
+            }
+
+            ROS_INFO("4");
             Node * merge_node = NULL;
             for(auto n : nodes) {
                 if(n->value == TOPO_NODE_OBJECT && std::abs(euclidian_distance(x, n->x, y, n->y)) < 0.2) {
@@ -208,6 +213,7 @@ public:
             }
         }
         else{
+            ROS_INFO("5");
             Node* tmp = new Node(x, y, value);
             add(last, tmp);            
         }
@@ -327,7 +333,7 @@ public:
 
             for(auto n : nodes) {
                 if(is_wall) {
-                    if(n->value != TOPO_NODE_WALL) {
+                    if(n->value != TOPO_NODE_WALL || n->value != TOPO_NODE_FREE || n->value != TOPO_NODE_OBJECT_VIEWER) {
                         return false;
                     }
                 }
@@ -447,13 +453,11 @@ public:
             auto node_pt = v.second;
             Node *n = new Node(node_pt.get<double>("x"), node_pt.get<double>("y"), node_pt.get<int>("value"), node_pt.get<long>("id"));
             nodes.insert(n);
-            if (is_current(n->value))
-                n->value = TOPO_NODE_FREE;
+//            if (is_current(n))
+//                n->value = TOPO_NODE_FREE;
             if(n->id == root_id) {
                 root = n;
-                last = root;
-                last->value = TOPO_NODE_CURRENT;
-                //set_as_last_node(n);
+                set_as_last_node(n);
             }
             if(n->value == TOPO_NODE_OBJECT_VIEWER) {
                 object_viewers.insert(n);
@@ -613,7 +617,7 @@ public:
         return is_free(node->value);
     }
     bool is_current(Node *node) {
-        return is_current(node->value);
+        return node == last;
     }
     bool is_object(Node *node) {
         return is_object(node->value);
@@ -637,10 +641,7 @@ public:
         return value == TOPO_NODE_WALL;
     }
     bool is_free(int value) {
-        return value == TOPO_NODE_FREE || value == TOPO_NODE_CURRENT;
-    }
-    bool is_current(int value) {
-        return value == TOPO_NODE_CURRENT;
+        return value == TOPO_NODE_FREE;
     }
     bool is_object(int value) {
         return value == TOPO_NODE_OBJECT;
@@ -680,8 +681,6 @@ public:
     }
 
     void set_as_last_node(Node* new_last_node){
-        last->value = TOPO_NODE_FREE;
-        new_last_node->value = TOPO_NODE_CURRENT;
         last = new_last_node;
     }
 
@@ -805,7 +804,10 @@ public:
         for(auto n : object->neighbors) {
             object_viewers_visited.insert(n);
         }
+    }
 
+    bool is_object_viewer_visited(Node *node) {
+        return std::find(object_viewers_visited.begin(), object_viewers_visited.end(), node) != object_viewers_visited.end();
     }
 
     void add_params()

@@ -445,6 +445,9 @@ public:
                 last->value = TOPO_NODE_CURRENT;
                 //set_as_last_node(n);
             }
+            if(n->value == TOPO_NODE_OBJECT_VIEWER) {
+                object_viewers.insert(n);
+            }
             ids[n->id] = n;
         }
 
@@ -786,6 +789,7 @@ public:
         for(auto n : object->neighbors) {
             object_viewers_visited.insert(n);
         }
+
     }
 
     void add_params()

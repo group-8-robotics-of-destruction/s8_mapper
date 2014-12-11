@@ -21,7 +21,8 @@ enum GoToUnexploredResult {
     SUCCEEDED = 1,
     AllExplored = 2,
     FAILED = 3,
-    AtRoot = 4
+    AtRoot = 4,
+    AtObjectViewer = 5
 };
 
 typedef s8::turner_node::Direction RotateDirection;
@@ -98,11 +99,13 @@ public:
         path = topological->dijkstra(topological->get_last(), is_object_node);
 
         if(path.size() == 0) {
-            //Nothing to explore.
             //go_to_callback(GoToUnexploredResult::SUCCEEDED); //TODO: Other?
             navigating = false;
             going_to_object_place = false;
-            return GoToUnexploredResult::SUCCEEDED;
+            ROS_INFO("Visited object viewer node!");
+            topological->visit_object_viewer(topological->get_last());
+            go_to_callback(GoToUnexploredResult::AtObjectViewer);
+            return GoToUnexploredResult::AtObjectViewer;
         }
 
         return 0;
@@ -219,7 +222,7 @@ public:
                     go_straight([&distance, &current, &robot_pose, this](){
                         double traveled_distance = topological->euclidian_distance(current->x, robot_pose->position.x, current->y, robot_pose->position.y);
                         ROS_INFO("Progress: %lf", (std::abs(distance - traveled_distance) / distance));
-                        if((std::abs(distance - traveled_distance) / distance) < 0.1) {
+                        if((distance - traveled_distance) < 0.06) {
                             return false;
                         }
 
@@ -232,6 +235,8 @@ public:
                     if(going_to_unexplored_place) {
                         go_to_unexplored_place();
                     } else {
+                        stop();
+                        ROS_INFO("Keep going to object place");
                         go_to_object_place();
                     }
                 } else {

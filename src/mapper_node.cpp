@@ -229,6 +229,9 @@ private:
             if(topological.has_object_nodes()) {
                 ROS_INFO("Intercepting unexplored action to go to object node instead.");
                 type = NavigateType::ToClosestObject;
+            } else {
+                ROS_WARN("No objects to navigate to. Changing phase to 1");
+                phase2 = false;
             }
         }
 

@@ -54,6 +54,7 @@ private:
     double same_nodes_euclidean_dist;
     std::unordered_set<Node*> object_viewers_visited;
     std::unordered_set<Node*> object_viewers;
+    bool *phase2;
 
 public:
     Topological() {
@@ -61,12 +62,13 @@ public:
         init(0, 0);
     }
 
-    Topological(double x, double y, ros::ServiceClient* position_client) {
+    Topological(double x, double y, ros::ServiceClient* position_client, bool *phase2) {
         add_params();
         root = NULL;
         last = NULL;
         lastOutOfRange = NULL;
         set_position_client = position_client;
+        this->phase2 = phase2;
 
         //init(x, y);
 
@@ -152,6 +154,7 @@ public:
             ROS_INFO("INITIALIZING");
         }
         else if (!isTurn){
+            ROS_INFO("1");
             if(std::abs( euclidian_distance(x, last->x, y, last->y)) > 0.1){
                 if (lastOutOfRange == NULL || std::abs( euclidian_distance(x, lastOutOfRange->x, y, lastOutOfRange->y)) > 0.2){
                     Node* tmp = new Node(x, y, value);
@@ -162,6 +165,7 @@ public:
             }
         } 
         else if (is_free(value)){
+            ROS_INFO("2");
             if (!does_node_exist(x, y, TOPO_NODE_FREE, isWallNorth, isWallWest, isWallSouth, isWallEast)){
                 Node* tmp = new Node(x, y, value);
                 add(last, tmp);
@@ -174,6 +178,10 @@ public:
             }
         }
         else if (value == TOPO_NODE_OBJECT_VIEWER) {
+            if(*phase2) {
+                return true;
+            }
+
             Node* tmp = new Node(x, y, value);
             viewer = tmp;
             link(last, viewer);
@@ -188,6 +196,8 @@ public:
                     break;
                 }
             }
+
+            ROS_INFO("merge_node: %s viewer: %s", merge_node == NULL ? "NULL" : "good", viewer == NULL ? "NULL" : "good");
 
             if(merge_node != NULL) {
                 link(merge_node, viewer);
@@ -687,7 +697,6 @@ public:
         //     to->neighbors.insert(n);
         //     n->neighbors.insert(to);
         // }
-
         // Loop through neighbours and add connections to the new node.
         if (is_free(to->value) || is_object_viewer(to->value)){
             double heading = heading_between_nodes(from, to);

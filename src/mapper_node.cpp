@@ -130,7 +130,7 @@ public:
 
         twist_publisher = nh.advertise<geometry_msgs::Twist>(TOPIC_TWIST, 1);
 
-        topological = Topological(0, 0, &set_position_client);
+        topological = Topological(0, 0, &set_position_client, &phase2);
 
         navigate_action_server.start();
     }

@@ -105,8 +105,10 @@ class Mapper : public s8::Node {
 
     bool phase2;
 
+    int cnt;
+
 public:
-    Mapper() : navigating(false), left_back_reading(TRESHOLD_VALUE), left_front_reading(TRESHOLD_VALUE), right_front_reading(TRESHOLD_VALUE), right_back_reading(TRESHOLD_VALUE), render_frame_skips(0), render_frames_to_skip((HZ / RENDER_HZ) - 1), map_state(0), map_state_rendered(-1), robot_x(0.0), robot_y(0.0), prev_robot_x(0.0), prev_robot_y(0.0), robot_pose(0, 0, -90), navigator(&topological, std::bind(&Mapper::go_to_callback, this, std::placeholders::_1), &twist_publisher, &robot_pose), navigate_action_server(nh, ACTION_NAVIGATE, boost::bind(&Mapper::action_execute_navigate_callback, this, _1), false) {
+    Mapper() : cnt(0), navigating(false), left_back_reading(TRESHOLD_VALUE), left_front_reading(TRESHOLD_VALUE), right_front_reading(TRESHOLD_VALUE), right_back_reading(TRESHOLD_VALUE), render_frame_skips(0), render_frames_to_skip((HZ / RENDER_HZ) - 1), map_state(0), map_state_rendered(-1), robot_x(0.0), robot_y(0.0), prev_robot_x(0.0), prev_robot_y(0.0), robot_pose(0, 0, -90), navigator(&topological, std::bind(&Mapper::go_to_callback, this, std::placeholders::_1), &twist_publisher, &robot_pose), navigate_action_server(nh, ACTION_NAVIGATE, boost::bind(&Mapper::action_execute_navigate_callback, this, _1), false) {
         init_params();
         print_params();
 
@@ -136,6 +138,15 @@ public:
     }
 
     void update() {
+        cnt++;
+
+        if(cnt > 10*20) { //20 seconds elapsed
+            ROS_INFO("Saving map...");
+            save();
+            ROS_INFO("Done");
+            cnt = 0;
+        }
+
         ir_world_positions.left_front = occupancy_grid.robot_coord_system_to_world_coord_system(ir_robot_positions.left_front);
         ir_world_positions.left_back = occupancy_grid.robot_coord_system_to_world_coord_system(ir_robot_positions.left_back);
         ir_world_positions.right_front = occupancy_grid.robot_coord_system_to_world_coord_system(ir_robot_positions.right_front);

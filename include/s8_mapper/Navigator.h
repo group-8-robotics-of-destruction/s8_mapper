@@ -340,9 +340,9 @@ public:
         int heading = get_current_heading();
 
         bool should_stop_go_straight = false; //TODO: Remove?
-
+        double diff = 10;
         ros::Rate loop_rate(25);
-        while(condition() && ros::ok() && !should_stop_go_straight) {
+        while(std::abs(diff) > 5 && ros::ok() && !should_stop_go_straight) {
             ros::spinOnce();
 
             double desired_angle = topological->angle_between_nodes(robot_pose->position.x, robot_pose->position.y, object);
@@ -352,7 +352,7 @@ public:
             }
             double rotation_rad = s8::utils::math::degrees_to_radians(rotation);
 
-            double diff = rotation_rad - desired_angle;
+            diff = rotation_rad - desired_angle;
 
             if (diff > 180){
                 diff -= 360;
@@ -365,6 +365,7 @@ public:
             } else {
                 twist.angular.z = 0.7;
             }
+            twist.linear.x = 0.0;
 
             twist_publisher->publish(twist);
             loop_rate.sleep();

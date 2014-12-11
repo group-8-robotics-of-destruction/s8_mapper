@@ -334,7 +334,7 @@ public:
         }
     }
 
-    void align_to_object(std::function<bool()> condition, Topological::Node *object) {
+    void align_to_object(Topological::Node *object) {
         geometry_msgs::Twist twist;
         twist.linear.x = go_straight_velocity;
         int heading = get_current_heading();
@@ -342,26 +342,31 @@ public:
         bool should_stop_go_straight = false; //TODO: Remove?
         double diff = 10;
         ros::Rate loop_rate(25);
-        while(std::abs(diff) > 5 && ros::ok() && !should_stop_go_straight) {
+        while(std::abs(diff) > 0.09 && ros::ok() && !should_stop_go_straight) {
             ros::spinOnce();
 
+            //ROS_INFO("ALIGNING");
             double desired_angle = topological->angle_between_nodes(robot_pose->position.x, robot_pose->position.y, object);
+            if (desired_angle < 0){
+                desired_angle += 2*M_PI;
+            }
             int rotation = (int)robot_pose->rotation % 360;
             if (rotation < 0){
                 rotation += 360;
             }
             double rotation_rad = s8::utils::math::degrees_to_radians(rotation);
 
+            ROS_INFO("desired angle %lf, rotation %lf", desired_angle, robot_pose->rotation);
             diff = rotation_rad - desired_angle;
 
-            if (diff > 180){
-                diff -= 360;
-            } else if (diff < -180) {
-                diff += 360;
+            if (diff > M_PI){
+                diff -= 2*M_PI;
+            } else if (diff < -M_PI) {
+                diff += 2*M_PI;
             }
 
             if (diff > 0){
-                twist.angular.z = 0.7;
+                twist.angular.z = -0.7;
             } else {
                 twist.angular.z = 0.7;
             }

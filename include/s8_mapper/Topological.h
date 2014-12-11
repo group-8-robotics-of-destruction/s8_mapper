@@ -104,8 +104,6 @@ public:
             ROS_WARN("Couldn't load map.");
         }
 
-        // add_node(0.0, 0.0, TOPO_NODE_FREE,true, false, true, false, false);
-        // add_node(1.5, 0, TOPO_NODE_FREE, true,false, false, false, false);
         // add_node(1.5, 1.5, TOPO_NODE_FREE, true,false, false, false, false);
         // for(auto n : nodes) {
         //     std::string s = "Connections: ";
